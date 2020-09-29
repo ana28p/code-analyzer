@@ -1,23 +1,118 @@
 from pathlib import Path
 from difflib import SequenceMatcher
 
+from utils.change import ChangedFile, ChangedMethod, Commit, Modification, ModificationType
+
 from pydriller import RepositoryMining
 
+
+files = {}
+
+
+def search_modified_file_or_create(filename, full_path) -> ChangedFile:
+    if full_path in files:
+        return files[full_path]
+    else:
+        c_file = ChangedFile(filename, full_path)
+        files[full_path] = c_file
+        return c_file
+
+
+def add_method(file, methodname, commit):
+    m = ChangedMethod(methodname)
+    m.commits.append(commit)
+    file.methods.append(m)
+
+
+def update_method(file, methodname, commit):
+    matches = [v for v in file.methods if v.name == methodname]
+    if len(matches) == 1:
+        matches[0].commits.append(commit)
+    else:
+        add_method(file, methodname, commit)
+
+
+def print_files():
+    for f in files.values():
+        print(f.full_path)
+        for m in f.methods:
+            print(m.name, len(m.commits))
+
+
+def update_files():
+    c = Commit('2020', 'apro', 922883847482)
+    file = search_modified_file_or_create('file1', '/path/to/file')
+    add_method(file, 'method1', c)
+    add_method(file, 'method2', c)
+    # print_files()
+
+
+def update_method_test():
+    c = Commit('2020', 'apro', 32343424)
+    file = search_modified_file_or_create('file1', '/path/to/file')
+    update_method(file, 'method2', c)
+    update_method(file, 'method2', c)
+    update_method(file, 'method2', c)
+    update_method(file, 'method3', c)
+    update_method(file, 'method3', c)
+    update_method(file, 'method3', c)
+
+
+def split_method_long_name(long_name):
+    start_of_name = long_name.rfind('::')
+    if start_of_name < 0:
+        raise Exception('Invalid method name ', long_name)
+    start_of_name += 2
+    return long_name[start_of_name:], long_name[:start_of_name]
+
+
+# method_signature, class_path = split_method_long_name("test::to::see::split ( st, ft)")
+# print(method_signature, '----', class_path)
+# update_files()
+# update_method_test()
+# print_files()
+
+# a = ['add', 'sutract', 'add2', 'subtract', 'pow']
+# b = ['add', 'pow']
+# a.remove(b)
+# print(a)
+
+# 468e305ac3c8bc10bde80d0b1357fa7f78b03410 - commit for method rename
 # d29780c984d3a034ee2e3e4ad82aad2de5153782 - commit for the parameter types change
 for c in RepositoryMining('https://github.com/ana28p/testing-with-csharp.git',
-                          single='468e305ac3c8bc10bde80d0b1357fa7f78b03410').traverse_commits():
+                          single='70d008798f0a51e88f764c27fdbc3800d6a76954').traverse_commits():
     print('----------------------------------')
     print(c.committer.name, c.committer_date, '|| msg: ', c.msg, c.hash)
     for m in c.modifications:
+        print(m.filename, m.change_type)
+        print(m.old_path, m.new_path)
         ch_mets = [val.long_name for val in m.changed_methods]
+        print('changed: ', ch_mets)
         curr_mets = [val.long_name for val in m.methods]
-        not_ex_mets = [x for x in ch_mets not in curr_mets]
+        print('current: ', curr_mets)
+        nesting = [val.top_nesting_level for val in m.methods]
+        print('nesting: ', nesting)
+        old_mets = [val.long_name for val in m.methods_before]
+        print('before: ', old_mets)
+        not_ex_mets = [x for x in ch_mets if x not in curr_mets]
         if len(not_ex_mets) > 0:
             print('removed or renamed', not_ex_mets)
-            newm = [x for x in ch_mets not in not_ex_mets]
-            for nm in not_ex_mets:
-                for cm in newm:
-                    print(nm, cm, ' similarity', SequenceMatcher(None, nm, cm).ratio())
+            # newm = [x for x in curr_mets if x not in old_mets]
+            # for nm in not_ex_mets:
+            #     for cm in newm:
+            #         print(nm, cm, ' similarity', SequenceMatcher(None, nm, cm).ratio())
+
+        modification = m
+        obsolete_methods = [m.long_name for m in modification.changed_methods if m not in modification.methods]
+        new_methods = [m.long_name for m in modification.changed_methods if m not in modification.methods_before]
+        updated_methods = [m.long_name for m in modification.changed_methods
+                           if (m in modification.methods_before) and (m in modification.methods)]
+        print('obs: ', obsolete_methods)
+        print('new: ', new_methods)
+        print('updated: ', updated_methods)
+
+        print(modification.diff_parsed['added'])
+        print(modification.diff_parsed['deleted'])
 
         # print('>', m.change_type, m.filename, m.old_path, m.new_path)
         # for c_met in m.changed_methods:

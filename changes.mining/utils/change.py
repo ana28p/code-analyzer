@@ -8,6 +8,8 @@ class ChangedFile:
         self.filename = filename
         self.full_path = full_path
         self.old_paths = []
+        self.methods = []
+        self.classes = set()
 
     def set_filename(self, filename):
         self.filename = filename
@@ -20,10 +22,10 @@ class ChangedFile:
 
 
 class ChangedMethod:
-    def __init__(self, name, changed_file: ChangedFile):
+    def __init__(self, name, class_path):
         self.name = name
-        self.changed_file = changed_file
-        self.modifications = []
+        self.class_path = class_path
+        self.commits = []
 
 
 class ModificationType(Enum):
@@ -36,9 +38,10 @@ class ModificationType(Enum):
 
 
 class Commit:
-    def __init__(self, date, author, c_hash):
+    def __init__(self, date, author, msg, c_hash):
         self.date = date
         self.author = author
+        self.msg = msg
         self.commit_hash = c_hash
 
 
