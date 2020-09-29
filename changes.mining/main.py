@@ -131,19 +131,34 @@ def check_class_rename(c_file, mod):
 
 
 def remove_methods(c_file, obsolete_methods):
+    # might be problems because of spaces
     to_remove = [m for m in c_file.methods if (m.class_path + m.name) in obsolete_methods]
     c_file.methods = [m for m in c_file.methods if m not in to_remove]
 
 
 def replace_method(c_file, commit, old_long_name, new_long_name):
-    matches = [m for m in c_file.methods if (m.class_path + m.name) == old_long_name]
+    # if commit.commit_hash == '03ca03d601d7f2c206e5e776d67155b0866afc70':
+    #     print()
+    matches = [m for m in c_file.methods if (m.class_path + m.name).replace(' ', '') == old_long_name.replace(' ', '')]
+    if len(matches) == 0:
+        # maybe the class was renamed already; search with the new class too
+        sig, _ = split_method_long_name(old_long_name)
+        _, class_path = split_method_long_name(new_long_name)
+        if commit.commit_hash == '413851a1425c2caf0600330d6ee1aaa2b63b90b3':
+            print((class_path + sig))
+            print([(m.class_path + m.name) for m in c_file.methods])
+        matches = [m for m in c_file.methods if (m.class_path + m.name).replace(' ', '') == (class_path + sig).replace(' ', '')]
+        if len(matches) == 0:
+            # last chance search for a method with the same name (if it's overloaded will fail)
+            matches = [m for m in c_file.methods if m.name[:m.name.rfind('(')] == sig[:sig.rfind('(')]]
+
     if len(matches) == 1:
         signature, class_path = split_method_long_name(new_long_name)
         matches[0].name = signature
         matches[0].class_path = class_path
         matches[0].commits.append(commit)
     else:
-        raise Exception('The method was not found (should be present) or too many matches', matches, old_long_name)
+        raise Exception('The method was not found (should be present) or too many matches', matches, old_long_name, commit.commit_hash, c_file.full_path)
 
 
 def check_and_update_methods(c_file, commit, modification):
@@ -171,8 +186,8 @@ def check_and_update_methods(c_file, commit, modification):
                         max_sim = [om, nm, sim]
                 if max_sim[2] >= 0.75:
                     replace_method(c_file, commit, max_sim[0], max_sim[1])
-                    new_methods.remove(max_sim[1])
                     updated_obs.append(max_sim[0])
+                    new_methods.remove(max_sim[1])
             if len(updated_obs) != len(obsolete_methods):
                 to_remove = [val for val in obsolete_methods if val not in updated_obs]
                 remove_methods(c_file, to_remove)
@@ -210,29 +225,30 @@ def mine(repo):
 
         # print(c.modifications)
         for mod in c.modifications:
-            # print(mod.change_type)
-            if mod.change_type == ModificationType.ADD:
-                # add all methods for file
-                c_file = search_modified_file_or_create(mod.filename, mod.new_path)
-                add_methods(c_file, mod.methods, commit)
-            elif mod.change_type == ModificationType.DELETE:
-                # delete file (and its methods)
-                files.pop(mod.old_path)
-            else:
-                # print('not add or delete')
-                # print(mod.change_type == ModificationType.RENAME)
-                if mod.change_type == ModificationType.RENAME:
-                    # print('rename', mod.filename, mod.old_path, mod.new_path)
-                    c_file = update_modified_file(mod.filename, mod.old_path, mod.new_path)
-                else:
+            if mod.filename.endswith('.cs'):
+                # print(mod.change_type, mod.filename, c.msg, c.hash)
+                if mod.change_type == ModificationType.ADD:
+                    # add all methods for file
                     c_file = search_modified_file_or_create(mod.filename, mod.new_path)
-                # check if the class was renamed; the changed_methods list can be empty
-                if len(mod.methods) > 0:
-                    check_class_rename(c_file, mod)
+                    add_methods(c_file, mod.methods, commit)
+                elif mod.change_type == ModificationType.DELETE:
+                    # delete file (and its methods)
+                    files.pop(mod.old_path)
+                else:
+                    # print('not add or delete')
+                    # print(mod.change_type == ModificationType.RENAME)
+                    if mod.change_type == ModificationType.RENAME:
+                        # print('rename', mod.filename, mod.old_path, mod.new_path)
+                        c_file = update_modified_file(mod.filename, mod.old_path, mod.new_path)
+                    else:
+                        c_file = search_modified_file_or_create(mod.filename, mod.new_path)
+                    # check if the class was renamed; the changed_methods list can be empty
+                    if len(mod.methods) > 0:
+                        check_class_rename(c_file, mod)
 
-                #  check if there are changed_methods
-                if len(mod.changed_methods) > 0:
-                    check_and_update_methods(c_file, commit, mod)
+                    #  check if there are changed_methods
+                    if len(mod.changed_methods) > 0:
+                        check_and_update_methods(c_file, commit, mod)
         # print_actual_files()
 
 

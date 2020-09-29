@@ -79,8 +79,8 @@ def split_method_long_name(long_name):
 
 # 468e305ac3c8bc10bde80d0b1357fa7f78b03410 - commit for method rename
 # d29780c984d3a034ee2e3e4ad82aad2de5153782 - commit for the parameter types change
-for c in RepositoryMining('https://github.com/ana28p/testing-with-csharp.git',
-                          single='70d008798f0a51e88f764c27fdbc3800d6a76954').traverse_commits():
+for c in RepositoryMining('C:/Users/aprodea/work/deloitte-tax-compare/.git',
+                          single='413851a1425c2caf0600330d6ee1aaa2b63b90b3').traverse_commits():
     print('----------------------------------')
     print(c.committer.name, c.committer_date, '|| msg: ', c.msg, c.hash)
     for m in c.modifications:
