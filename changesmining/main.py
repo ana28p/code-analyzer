@@ -209,7 +209,8 @@ def print_actual_files():
 
 def write_to_csv(list):
     with open('C:/Users/aprodea/work/metrics-tax-compare/commits/commits_tax_compare.csv', 'w') as csvfile:
-        filewriter = csv.writer(csvfile, delimiter=',')
+        filewriter = csv.writer(csvfile, delimiter=';')
+        filewriter.writerow(['Full_path', 'Filename', 'Method', 'Changes'])
         for key, v_f in list.items():
             for mp in v_f.methods:
                 method_full_name = (mp.class_path + mp.name)
