@@ -8,7 +8,6 @@ from typing import List
 from pydriller import RepositoryMining
 from pydriller.domain.commit import Method, ModificationType
 from utils.change import ChangedFile, ChangedMethod, Commit, Modification
-# from changes.mining.utils.change import Chan
 
 changed_methods = {}
 files = {}
