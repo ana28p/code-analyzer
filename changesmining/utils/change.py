@@ -50,3 +50,20 @@ class Modification:
         self.commit = commit
         self.mod_type = mod_type
 
+
+class MethodsSplit:
+    def __init__(self, modification):
+        self.changed = modification.changed_methods
+        self.before = modification.methods_before
+        self.current = modification.methods
+
+        self.obsolete = [m for m in self.changed if m not in self.current]
+        self.new = [m for m in self.changed if m not in self.before]
+        self.updated = [m for m in self.changed if (m in self.before) and (m in self.current)]
+
+        self.names_before_without_obsolete = [m.long_name for m in self.before if m not in self.obsolete]
+        self.names_current_without_new = [m.long_name for m in self.current if m not in self.new]
+
+        self.names_obsolete = [m.long_name for m in self.obsolete]
+        self.names_new = [m.long_name for m in self.new]
+        self.names_updated = [m.long_name for m in self.updated]

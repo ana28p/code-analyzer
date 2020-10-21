@@ -3,13 +3,15 @@
 import csv
 from difflib import SequenceMatcher
 from typing import List
+import re
 
 from pydriller import RepositoryMining
 from pydriller.domain.commit import Method, ModificationType
-from utils.change import ChangedFile, ChangedMethod, Commit, Modification
+from utils.change import ChangedFile, ChangedMethod, Commit, Modification, MethodsSplit
 
 changed_methods = {}
 files = {}
+PATTERN = re.compile("(?:namespace|class|struct)\\s(.*?)(?:\\s|\\s?{)")
 
 
 def search_modified_file_or_create(filename, full_path) -> ChangedFile:
@@ -73,11 +75,21 @@ def add_methods(changed_file: ChangedFile, methods: List[Method], commit: Commit
         update_or_create_method(changed_file, m, commit)
 
 
-def update_methods_with_new_class(c_file: ChangedFile, current_path, new_class_path):
+def update_all_methods_with_new_class(c_file: ChangedFile, current_path, new_class_path):
     for m in c_file.methods:
         if m.class_path == current_path:
             m.class_path = new_class_path
             break
+    c_file.classes.discard(current_path)
+    c_file.classes.add(new_class_path)
+
+
+def update_methods_with_new_class(c_file: ChangedFile, methods, current_path, new_class_path):
+    for m in c_file.methods:
+        long_name = m.class_path + m.name
+        if (long_name in methods) and (m.class_path == current_path):
+            m.class_path = new_class_path
+    c_file.classes.discard(current_path)
     c_file.classes.add(new_class_path)
 
 
@@ -107,49 +119,82 @@ def get_classes_in_current_file(mod):
     return classes
 
 
-def check_class_rename(c_file, mod):
-    if len(mod.changed_methods) == 0:
-        if len(c_file.classes) == 1:
-            # it is enough to check only one method when there is only one class per file
-            _, class_path = split_method_long_name(mod.methods[0].long_name)
-            if class_path not in c_file.classes:
-                current_class = c_file.classes.pop()
-                update_methods_with_new_class(c_file, current_class, class_path)
-        else:
-            # the methods are in the order they appear in the file
-            for i in range(len(mod.methods)):
-                sig, old_class = split_method_long_name(mod.methods_before[i].long_name)
-                sig2, new_class = split_method_long_name(mod.methods[i].long_name)
-                if (sig == sig2) and (old_class != new_class):
-                    c_file.classes.remove(old_class)
-                    update_method_with_new_class(c_file, sig, old_class, new_class)
-    else:
-        all_classes = get_classes_in_current_file(mod)
-        if (len(all_classes) == 1) and (len(c_file.classes) == 1):
-            cls = all_classes.pop()
-            if cls not in c_file.classes:
-                current_class = c_file.classes.pop()
-                update_methods_with_new_class(c_file, current_class, cls)
-        else:
-            raise Exception('Not implemented')
-        # the classes have the form namespace::class_name::
-        renamed_classes = []
-        for cls in c_file.classes:
-            # remove last ::
-            cls_name = cls[:-2]
-            cls_name = cls_name[(cls_name.rfind("::") + 2):]
-            for line_nr, line_val in mod.diff_parsed['deleted']:
-                if (" " + cls_name) in line_val:
-                    renamed_classes.append(cls)
+# def get_match(pattern, text):
+#     matches = pattern.search(text)
+#     if matches:
+#         return matches.groups()[0]
+#     return None
+#
+#
+# def check_for_replacement(removed_text, added_text):
+#     match = get_match(PATTERN, removed_text)
+#     if match is not None:
+#         replacement_match = get_match(PATTERN, added_text)
+#         if replacement_match is not None:
+#             if ("namespace" in removed_text) and ("namespace" in added_text):
+#                 return match + "::", replacement_match + "::"
+#             else:
+#                 return "::" + match + "::", "::" + replacement_match + "::"
+#     return None
+#
+#
+# def check_and_update_class_rename(c_file, mod):
+#     diff = mod.diff.splitlines(1)
+#     to_replace_groups = []
+#     for i in range(len(diff)):
+#         if diff[i].startswith('-') and diff[i + 1].startswith('+'):
+#             replacement = check_for_replacement(diff[i], diff[i + 1])
+#             if replacement is not None:
+#                 to_replace_groups.append(replacement)
+#     if len(to_replace_groups) == 0:
+#         return
+#
+#     common_methods = [m.long_name for m in mod.methods if m in mod.methods_before]
+#     for a, b in to_replace_groups:
+#         if a.startswith("::"):
+#             old_paths = [c for c in c_file.classes if a in c]
+#             op = old_paths[0]
+#             new_op = op.replace(a, b)
+#             print('replace: ', op, " with: ", new_op)
+#             update_methods_with_new_class(c_file, common_methods, op, new_op)
+#         else:
+#             old_paths = [op for op in c_file.classes if op.startsWith(a)]
+#             for op in old_paths:
+#                 new_op = op.replace(a, b)
+#                 print('replace: ', op, " with: ", new_op)
+#                 update_methods_with_new_class(c_file, common_methods, op, new_op)
 
-        for m in mod.methods:
-            _, class_path = split_method_long_name(m.long_name)
-            if class_path in renamed_classes:
-                search_and_update_old_method_with_new_class(c_file, m, mod.methods_before)
+
+# def check_class_rename(c_file, mod):
+#     if len(mod.changed_methods) == 0:
+#         if len(c_file.classes) == 1:
+#             # it is enough to check only one method when there is only one class per file
+#             _, class_path = split_method_long_name(mod.methods[0].long_name)
+#             if class_path not in c_file.classes:
+#                 current_class = c_file.classes.pop()
+#                 update_all_methods_with_new_class(c_file, current_class, class_path)
+#         else:
+#             # the methods are in the order they appear in the file
+#             for i in range(len(mod.methods)):
+#                 sig, old_class = split_method_long_name(mod.methods_before[i].long_name)
+#                 sig2, new_class = split_method_long_name(mod.methods[i].long_name)
+#                 if (sig == sig2) and (old_class != new_class):
+#                     c_file.classes.discard(old_class)
+#                     update_method_with_new_class(c_file, sig, old_class, new_class)
+#     else:
+#         all_classes = get_classes_in_current_file(mod)
+#         if (len(all_classes) == 1) and (len(c_file.classes) == 1):
+#             cls = all_classes.pop()
+#             if cls not in c_file.classes:
+#                 current_class = c_file.classes.pop()
+#                 for m in mod.methods:
+#                     sig, new_class = split_method_long_name(m.long_name)
+#                     update_method_with_new_class(c_file, sig, current_class, new_class)
+#         else:
+#             check_and_update_class_rename(c_file, mod)
 
 
 def remove_methods(c_file, obsolete_methods):
-    # might be problems because of spaces
     to_remove = [m for m in c_file.methods if (m.class_path + m.name) in obsolete_methods]
     c_file.methods = [m for m in c_file.methods if m not in to_remove]
 
@@ -158,7 +203,7 @@ def replace_method(c_file, commit, old_long_name, new_long_name):
     matches = [m for m in c_file.methods if (m.class_path + m.name).replace(' ', '') == old_long_name.replace(' ', '')]
     if len(matches) == 0:
         sig, _ = split_method_long_name(old_long_name)
-        # try to search for a method with the same name (if it's overloaded will fail)
+        # try to search for a method with the same name (if it's overloaded then the error is raised)
         # can be the case that two different commits change the method signature in different ways
         matches = [m for m in c_file.methods if m.name[:m.name.rfind('(')] == sig[:sig.rfind('(')]]
 
@@ -172,24 +217,57 @@ def replace_method(c_file, commit, old_long_name, new_long_name):
                          [(m.class_path + m.name) for m in matches], old_long_name, commit.commit_hash, c_file.full_path)
 
 
+def get_map_of_methods(methods):
+    methods_dict = {}
+    for m in methods:
+        sig, class_path = split_method_long_name(m)
+        if class_path in methods_dict:
+            methods_dict[class_path].append(sig)
+        else:
+            methods_dict[class_path] = [sig]
+    for v in methods_dict.values():
+        v.sort()
+    return methods_dict
+
+
+def check_for_rename(c_file, methods):
+    before = methods.names_before_without_obsolete
+    current = methods.names_current_without_new
+
+    before_dict = get_map_of_methods(before)
+    current_dict = get_map_of_methods(current)
+
+    # print("methods before: ", before_dict)
+    # print("methods current: ", current_dict)
+    #
+    # print("methods stored: ", get_map_of_methods([(m.class_path + m.name) for m in c_file.methods]))
+
+    for b_cls_path, b_methods in before_dict.items():
+        for cls_path, methods in current_dict.items():
+            if (b_methods == methods) and (b_cls_path != cls_path):
+                # replace b_cls_path with cls_path
+                # print("replace: ", b_cls_path, " with: ", cls_path)
+                update_methods_with_new_class(c_file, before, b_cls_path, cls_path)
+
+                # print("after update: ", get_map_of_methods([(m.class_path + m.name) for m in c_file.methods]))
+
+
 def check_and_update_methods(c_file, commit, modification):
-    obsolete_methods = [m.long_name for m in modification.changed_methods if m not in modification.methods]
-    new_methods = [m.long_name for m in modification.changed_methods if m not in modification.methods_before]
-    updated_methods = [m.long_name for m in modification.changed_methods
-                       if (m in modification.methods_before) and (m in modification.methods)]
+    methods = MethodsSplit(modification)
 
-    # print('obs: ', obsolete_methods)
-    # print('new: ', new_methods)
-    # print('updated: ', updated_methods)
+    check_for_rename(c_file, methods)
+    # print("obs: ", obsolete_method_names)
+    # print("new: ", new_methods_names)
+    # print("up: ", updated_methods_names)
 
-    if len(obsolete_methods) > 0:  # removed or renamed
-        if len(new_methods) == 0:
-            remove_methods(c_file, obsolete_methods)
+    if len(methods.names_obsolete) > 0:  # removed or renamed
+        if len(methods.names_new) == 0:
+            remove_methods(c_file, methods.names_obsolete)
         else:
             updated_obs = []
-            for om in obsolete_methods:
+            for om in methods.names_obsolete:
                 max_similarity = ['', '', 0]
-                for nm in new_methods:
+                for nm in methods.names_new:
                     sig_m1, _ = split_method_long_name(om)
                     sig_m2, _ = split_method_long_name(nm)
                     sim = SequenceMatcher(None, sig_m1, sig_m2).ratio()
@@ -199,22 +277,20 @@ def check_and_update_methods(c_file, commit, modification):
                     try:
                         replace_method(c_file, commit, max_similarity[0], max_similarity[1])
                         updated_obs.append(max_similarity[0])
-                        new_methods.remove(max_similarity[1])
+                        methods.names_new.remove(max_similarity[1])
                     except ValueError as e:
                         # if the replace fails, don't do anything
                         # the old method will be removed and the new method will be considered as new
                         print(e)
             # check if all obsolete methods were updated
-            if len(updated_obs) != len(obsolete_methods):
-                to_remove = [val for val in obsolete_methods if val not in updated_obs]
+            if len(updated_obs) != len(methods.names_obsolete):
+                to_remove = [val for val in methods.names_obsolete if val not in updated_obs]
                 remove_methods(c_file, to_remove)
-    if len(new_methods) > 0:
-        for m in new_methods:
-            update_or_create_method_using_str(c_file, m, commit)
+    for m in methods.names_new:
+        update_or_create_method_using_str(c_file, m, commit)
 
-    if len(updated_methods) > 0:
-        for m in updated_methods:
-            update_or_create_method_using_str(c_file, m, commit)
+    for m in methods.names_updated:
+        update_or_create_method_using_str(c_file, m, commit)
 
 
 def print_actual_files():
@@ -264,12 +340,13 @@ def mine(repo):
                     else:
                         c_file = search_modified_file_or_create(mod.filename, mod.new_path)
                     # check if the class was renamed; the changed_methods list can be empty
-                    if len(mod.methods) > 0:
-                        check_class_rename(c_file, mod)
-
-                    #  check if there are changed_methods
-                    if len(mod.changed_methods) > 0:
-                        check_and_update_methods(c_file, commit, mod)
+                    # if len(mod.methods) > 0:
+                    #     # check_and_update_class_rename(c_file, mod)
+                    #     check_class_rename(c_file, mod)
+                    #
+                    # #  check if there are changed_methods
+                    # if len(mod.changed_methods) > 0:
+                    check_and_update_methods(c_file, commit, mod)
         # print_actual_files()
 
 
