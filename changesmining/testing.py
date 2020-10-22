@@ -81,7 +81,7 @@ def split_method_long_name(long_name):
 # d29780c984d3a034ee2e3e4ad82aad2de5153782 - commit for the parameter types change
 # for c in RepositoryMining('C:/Users/aprodea/work/deloitte-tax-compare/.git',
 for c in RepositoryMining('https://github.com/ana28p/testing-with-csharp.git',
-                          single='265708e583d47df317c83507c649b82353375707').traverse_commits():
+                          single='468e305ac3c8bc10bde80d0b1357fa7f78b03410').traverse_commits():
     print('----------------------------------')
     print(c.committer.name, c.committer_date, '|| msg: ', c.msg, c.hash)
     for m in c.modifications:

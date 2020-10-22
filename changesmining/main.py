@@ -4,10 +4,14 @@ import csv
 from difflib import SequenceMatcher
 from typing import List
 import re
+import time
 
 from pydriller import RepositoryMining
 from pydriller.domain.commit import Method, ModificationType
 from utils.change import ChangedFile, ChangedMethod, Commit, Modification, MethodsSplit
+
+
+start_time = time.time()
 
 changed_methods = {}
 files = {}
@@ -119,13 +123,24 @@ def get_classes_in_current_file(mod):
     return classes
 
 
-# def get_match(pattern, text):
-#     matches = pattern.search(text)
-#     if matches:
-#         return matches.groups()[0]
-#     return None
-#
-#
+def get_match(pattern, text):
+    matches = pattern.search(text)
+    if matches:
+        return matches.groups()[0]
+    return None
+
+
+def check_if_possible_rename(mod):
+    diff = mod.diff.splitlines(1)
+    for i in range(len(diff)):
+        line = diff[i].lower()
+        if line.startswith('-') and (("namespace " in line)
+                                     or ("class " in line)
+                                     or ("struct " in line)):
+            return True
+    return False
+
+
 # def check_for_replacement(removed_text, added_text):
 #     match = get_match(PATTERN, removed_text)
 #     if match is not None:
@@ -136,8 +151,7 @@ def get_classes_in_current_file(mod):
 #             else:
 #                 return "::" + match + "::", "::" + replacement_match + "::"
 #     return None
-#
-#
+
 # def check_and_update_class_rename(c_file, mod):
 #     diff = mod.diff.splitlines(1)
 #     to_replace_groups = []
@@ -255,24 +269,27 @@ def check_for_rename(c_file, methods):
 def check_and_update_methods(c_file, commit, modification):
     methods = MethodsSplit(modification)
 
+    # if check_if_possible_rename(modification):  # it makes it slightly slower
     check_for_rename(c_file, methods)
-    # print("obs: ", obsolete_method_names)
-    # print("new: ", new_methods_names)
-    # print("up: ", updated_methods_names)
 
     if len(methods.names_obsolete) > 0:  # removed or renamed
         if len(methods.names_new) == 0:
             remove_methods(c_file, methods.names_obsolete)
         else:
             updated_obs = []
-            for om in methods.names_obsolete:
+            for om in methods.obsolete:
                 max_similarity = ['', '', 0]
-                for nm in methods.names_new:
-                    sig_m1, _ = split_method_long_name(om)
-                    sig_m2, _ = split_method_long_name(nm)
+                for nm in methods.new:
+                    # check first if they have the same name; only the parameters are different; then it is the same
+                    # or make the difference between their content; I have start and end line
+                    # if om.name == nm.name:
+                    #     max_similarity = [om.long_name, nm.long_name, 1]
+                    #     break
+                    sig_m1, _ = split_method_long_name(om.long_name)
+                    sig_m2, _ = split_method_long_name(nm.long_name)
                     sim = SequenceMatcher(None, sig_m1, sig_m2).ratio()
                     if sim > max_similarity[2]:
-                        max_similarity = [om, nm, sim]
+                        max_similarity = [om.long_name, nm.long_name, sim]
                 if max_similarity[2] >= 0.6:
                     try:
                         replace_method(c_file, commit, max_similarity[0], max_similarity[1])
@@ -302,7 +319,7 @@ def print_actual_files():
 
 
 def write_to_csv(dict_files):
-    with open('C:/Users/aprodea/work/testing/commits.csv', 'w') as csvfile:
+    with open('C:/Users/aprodea/work/metrics-tax-compare/commits/commits.csv', 'w') as csvfile:
         fieldnames = ['Full_path', 'Filename', 'Method', 'Changes']
         file_writer = csv.DictWriter(csvfile, fieldnames, delimiter=';', lineterminator='\n')
         file_writer.writeheader()
@@ -350,8 +367,11 @@ def mine(repo):
         # print_actual_files()
 
 
-# mine('C:/Users/aprodea/work/deloitte-tax-compare/.git')
-mine('https://github.com/ana28p/testing-with-csharp.git')
+mine('C:/Users/aprodea/work/deloitte-tax-compare/.git')
+# mine('https://github.com/ana28p/testing-with-csharp.git')
+
+print("--- %s seconds ---" % (time.time() - start_time))
+
 # for k, m in changed_methods.items():
 #     print(k, ' name: ', m.name, ' modifications:', len(m.modifications))
 write_to_csv(files)
