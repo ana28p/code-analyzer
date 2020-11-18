@@ -11,7 +11,7 @@ import scipy.stats as stats
 from pyclustertend import hopkins, vat, assess_tendency_by_mean_metric_score
 from sklearn.preprocessing import scale, MinMaxScaler, minmax_scale, RobustScaler,robust_scale
 from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
+from sklearn.metrics import silhouette_score, accuracy_score, precision_score
 from sklearn.metrics.cluster import adjusted_rand_score
 from sklearn import mixture
 import statistics
@@ -120,7 +120,7 @@ def em_clustering(data, rand_state):
     return label_data(data, labels)
 
 
-def analysis():
+def analysis(rand_state):
     print('Start')
     merged_data = get_data()
     scaled_data = scale_data(merged_data)
@@ -132,12 +132,12 @@ def analysis():
     # data_threshold_classified.to_csv(
     #     "C:/Users/aprodea/work/metrics-tax-compare/classification/threshold.csv", sep=';', index=False)
 
-    k_means_cluster_data = k_means_clustering(scaled_data, rand_state=42)
+    k_means_cluster_data = k_means_clustering(scaled_data, rand_state=rand_state)
     data_k_means_classified = merge_clevel_in_data(merged_data, k_means_cluster_data)
     # data_k_means_classified.to_csv(
     #     "C:/Users/aprodea/work/metrics-tax-compare/classification/k_means.csv", sep=';', index=False)
 
-    em_cluster_data = em_clustering(scaled_data, rand_state=42)
+    em_cluster_data = em_clustering(scaled_data, rand_state=rand_state)
     data_em_classified = merge_clevel_in_data(merged_data, em_cluster_data)
     # data_em_classified.to_csv(
     #     "C:/Users/aprodea/work/metrics-tax-compare/classification/em.csv", sep=';', index=False)
@@ -191,7 +191,7 @@ def test_clustering_result():
 def calculate_determinism():
     merged_data = get_data()
     scaled_data = scale_data(merged_data)
-    times = 100
+    times = 1000
     print('Calculate adjusted rand score for ', times, ' executions')
     print('--------- random state None ---------')
     print('===== k-means:')
@@ -206,6 +206,27 @@ def calculate_determinism():
     #     print('(min  max  average) ', test_determinism_em(scaled_data, times, i))
 
 
+def compare_results():
+    metrics_file = "C:/Users/aprodea/work/metrics-tax-compare/classification/all_labels.csv"
+    metrics_labelled_data = pd.read_csv(metrics_file, sep=';')
+
+    # test_cov_file = "C:/Users/aprodea/work/metrics-tax-compare/merged/test_coverage_org.csv"
+    # test_data = pd.read_csv(test_cov_file, sep=';')
+    #
+    # data_combined = pd.merge(metrics_labelled_data[['Method', 'CLevel', 'CLevel_k_means', 'CLevel_em']], test_data,
+    #                          on='Method', how='left')
+
+    labels_var = ['CLevel', 'CLevel_k_means', 'CLevel_em']
+    for l1 in labels_var:
+        for l2 in labels_var:
+            ari = adjusted_rand_score(metrics_labelled_data[l1].tolist(), metrics_labelled_data[l2].tolist())
+            pr = precision_score(metrics_labelled_data[l1].tolist(), metrics_labelled_data[l2].tolist(),
+                                 labels=['high', 'regular', 'low'], average=None)
+            acc = accuracy_score(metrics_labelled_data[l1].tolist(), metrics_labelled_data[l2].tolist())
+            print('{}  to  {}  ari: {}  precision: {}  accuracy: {}'.format(l1, l2, ari, pr, acc))
+
+
 if __name__ == '__main__':
-    # analysis()
-    calculate_determinism()
+    # analysis(42)
+    compare_results()
+    # calculate_determinism()

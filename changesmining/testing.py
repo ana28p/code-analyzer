@@ -1,7 +1,7 @@
 from pathlib import Path
 from difflib import SequenceMatcher
 
-from utils.change import ChangedFile, ChangedMethod, Commit, Modification, ModificationType
+from utils.change import ChangedFile, ChangedMethod, Commit, Modification, ModificationType, MethodsSplit
 
 from pydriller import RepositoryMining
 
@@ -81,7 +81,7 @@ def split_method_long_name(long_name):
 # d29780c984d3a034ee2e3e4ad82aad2de5153782 - commit for the parameter types change
 # for c in RepositoryMining('C:/Users/aprodea/work/deloitte-tax-compare/.git',
 for c in RepositoryMining('https://github.com/ana28p/testing-with-csharp.git',
-                          single='468e305ac3c8bc10bde80d0b1357fa7f78b03410').traverse_commits():
+                          single='5184eea9a2078b43db04c9c8f2768ac5713506f4').traverse_commits():
     print('----------------------------------')
     print(c.committer.name, c.committer_date, '|| msg: ', c.msg, c.hash)
     for m in c.modifications:
@@ -89,6 +89,8 @@ for c in RepositoryMining('https://github.com/ana28p/testing-with-csharp.git',
         print(m.old_path, m.new_path)
         ch_mets = [val.long_name for val in m.changed_methods]
         print('changed: ', ch_mets)
+        for val in m.changed_methods:
+            print(val.name, val.long_name, 'start line {} - end line {}'.format(val.start_line, val.end_line))
         curr_mets = [val.long_name for val in m.methods]
         print('current: ', curr_mets)
         nesting = [val.top_nesting_level for val in m.methods]
@@ -112,10 +114,19 @@ for c in RepositoryMining('https://github.com/ana28p/testing-with-csharp.git',
         print('new: ', new_methods)
         print('updated: ', updated_methods)
 
+        met_split = MethodsSplit(modification)
+
+        print('obs: ', met_split.names_obsolete)
+        print('new: ', met_split.names_new)
+        print('updated: ', met_split.names_updated)
+
         print(modification.diff_parsed['added'])
         print(modification.diff_parsed['deleted'])
 
         print(modification.diff)
+
+        # print(modification.source_code_before.splitlines(True))
+        # print(modification.source_code_before)
 
         # print('>', m.change_type, m.filename, m.old_path, m.new_path)
         # for c_met in m.changed_methods:

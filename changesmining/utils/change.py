@@ -28,13 +28,13 @@ class ChangedMethod:
         self.commits = []
 
 
-class ModificationType(Enum):
-    ADD = 1
-    COPY = 2
-    RENAME = 3
-    DELETE = 4
-    MODIFY = 5
-    UNKNOWN = 6
+# class ModificationType(Enum):
+#     ADD = 1
+#     COPY = 2
+#     RENAME = 3
+#     DELETE = 4
+#     MODIFY = 5
+#     UNKNOWN = 6
 
 
 class Commit:
@@ -43,12 +43,13 @@ class Commit:
         self.author = author
         self.msg = msg
         self.commit_hash = c_hash
+        self.changed_lines = 0
 
 
-class Modification:
-    def __init__(self, commit: Commit, mod_type: ModificationType):
-        self.commit = commit
-        self.mod_type = mod_type
+# class Modification:
+#     def __init__(self, commit: Commit, mod_type: ModificationType):
+#         self.commit = commit
+#         self.mod_type = mod_type
 
 
 class MethodsSplit:
@@ -57,13 +58,16 @@ class MethodsSplit:
         self.before = modification.methods_before
         self.current = modification.methods
 
-        self.obsolete = [m for m in self.changed if m not in self.current]
-        self.new = [m for m in self.changed if m not in self.before]
-        self.updated = [m for m in self.changed if (m in self.before) and (m in self.current)]
+        before_long_names = [m.long_name for m in self.before]
+        current_long_names = [m.long_name for m in self.current]
 
-        self.names_before_without_obsolete = [m.long_name for m in self.before if m not in self.obsolete]
-        self.names_current_without_new = [m.long_name for m in self.current if m not in self.new]
+        self.obsolete = [m for m in self.changed if m.long_name not in current_long_names]
+        self.new = [m for m in self.changed if m.long_name not in before_long_names]
+        self.updated = [m for m in self.changed if (m.long_name in before_long_names) and (m.long_name in current_long_names)]
 
         self.names_obsolete = [m.long_name for m in self.obsolete]
         self.names_new = [m.long_name for m in self.new]
         self.names_updated = [m.long_name for m in self.updated]
+
+        self.names_before_without_obsolete = [name_m for name_m in before_long_names if name_m not in self.names_obsolete]
+        self.names_current_without_new = [name_m for name_m in current_long_names if name_m not in self.names_new]
