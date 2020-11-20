@@ -13,8 +13,6 @@ from pydriller.domain.commit import Method, Modification, ModificationType
 from utils.change import ChangedFile, ChangedMethod, Commit, MethodsSplit
 
 
-start_time = time.time()
-
 changed_methods = {}
 files = {}
 PATTERN = re.compile("(?:namespace|class|struct)\\s(.*?)(?:\\s|\\s?{)")
@@ -52,13 +50,30 @@ def update_modified_file(filename: str, old_full_path: str, new_full_path: str) 
 def split_method_long_name(long_name: str) -> (str, str):
     start_of_name = long_name.rfind('::')
     if start_of_name < 0:
-        raise Exception('Invalid method name ', long_name)
+        print('Invalid method name ', long_name)
+        return '', long_name
     start_of_name += 2  # add length of separator
     return long_name[start_of_name:], long_name[:start_of_name]
 
 
+def get_matches_for_method(changed_file: ChangedFile, commit_hash: str, method_long_name: str):
+    matches = [m for m in changed_file.methods
+               if (m.class_path + m.name).replace(' ', '') == method_long_name.replace(' ', '')]
+    if len(matches) == 0:
+        sig, _ = split_method_long_name(method_long_name)
+        # can be the case that two different commits change the method signature in different ways
+        # try to search for a method with the same name (if it's overloaded then the error is raised)
+        matches = [m for m in changed_file.methods if m.name[:m.name.rfind('(')] == sig[:sig.rfind('(')]]
+
+    if len(matches) > 1:
+        raise ValueError('The method {} was not found (should be present) or too many matches {} for file {} in commit {}'
+                         .format(method_long_name, [(m.class_path + m.name) for m in matches], changed_file.full_path, commit_hash))
+    return matches
+
+
 def update_or_create_method_using_str(changed_file: ChangedFile, method_long_name: str, commit: Commit):
-    matches = [v for v in changed_file.methods if (v.class_path + v.name) == method_long_name]
+
+    matches = get_matches_for_method(changed_file, commit.commit_hash, method_long_name)
 
     if len(matches) == 1:
         matches[0].commits.append(commit)
@@ -68,8 +83,6 @@ def update_or_create_method_using_str(changed_file: ChangedFile, method_long_nam
         m.commits.append(commit)
         changed_file.methods.append(m)
         changed_file.classes.add(class_path)
-    else:
-        raise Exception("Methods with the same long name in a file ", [m.name for m in changed_file.methods])
 
 
 # def update_or_create_method(changed_file: ChangedFile, method: Method, commit: Commit):
@@ -140,21 +153,13 @@ def replace_and_update_method(modification: Modification, c_file: ChangedFile, c
     old_long_name = obs_m.long_name
     new_long_name = new_m.long_name
 
-    matches = [m for m in c_file.methods if (m.class_path + m.name).replace(' ', '') == old_long_name.replace(' ', '')]
-    if len(matches) == 0:
-        sig, _ = split_method_long_name(old_long_name)
-        # can be the case that two different commits change the method signature in different ways
-        # try to search for a method with the same name (if it's overloaded then the error is raised)
-        matches = [m for m in c_file.methods if m.name[:m.name.rfind('(')] == sig[:sig.rfind('(')]]
+    matches = get_matches_for_method(c_file, commit.commit_hash, old_long_name)
 
     if len(matches) == 1:
         signature, class_path = split_method_long_name(new_long_name)
         matches[0].name = signature
         matches[0].class_path = class_path
         matches[0].commits.append(commit_copy)
-    else:
-        raise ValueError('The method was not found (should be present) or too many matches',
-                         [(m.class_path + m.name) for m in matches], old_long_name, commit.commit_hash, c_file.full_path)
 
 
 def add_methods(changed_file: ChangedFile, methods: List[Method], commit: Commit):
@@ -348,7 +353,7 @@ def check_and_update_methods(c_file: ChangedFile, commit: Commit, modification: 
                     sig_new_m, cls_new_m = split_method_long_name(nm.long_name)
 
                     # check first if the namespace or class were renamed
-                    if renamed and (renamed[cls_obs_m] == cls_new_m):
+                    if (cls_obs_m in renamed) and (renamed[cls_obs_m] == cls_new_m):
                         to_replace = (om, nm, 1)
                         break
                     else:
@@ -389,35 +394,62 @@ def print_actual_files():
                   'nr of chg lines: ', sum([c.changed_lines for c in mp.commits]))
 
 
-def write_to_csv(dict_files):
-    with open('C:/Users/aprodea/work/metrics-tax-compare/commits/commits-tax.csv', 'w') as csvfile:
+def write_to_csv(file_path: str, include_prev_name: bool = False):
+    with open(file_path, 'w') as csvfile:
         fieldnames = ['Full_path', 'Filename', 'Method', 'Changes', 'ChgLines']
+        if include_prev_name:
+            fieldnames.append('Previous_name')
         file_writer = csv.DictWriter(csvfile, fieldnames, delimiter=';', lineterminator='\n')
         file_writer.writeheader()
-        for key, v_f in dict_files.items():
+        for key, v_f in files.items():
             for mp in v_f.methods:
                 method_full_name = (mp.class_path + mp.name)
                 chg_lines = sum([c.changed_lines for c in mp.commits])
-                file_writer.writerow({
-                    'Full_path': v_f.full_path,
-                    'Filename': v_f.filename,
-                    'Method': method_full_name,
-                    'Changes': len(mp.commits),
-                    'ChgLines': chg_lines
-                })
+                if include_prev_name:
+                    file_writer.writerow({
+                        'Full_path': v_f.full_path,
+                        'Filename': v_f.filename,
+                        'Method': method_full_name,
+                        'Changes': len(mp.commits),
+                        'ChgLines': chg_lines,
+                        'Previous_name': mp.previous_long_name
+                    })
+                else:
+                    file_writer.writerow({
+                        'Full_path': v_f.full_path,
+                        'Filename': v_f.filename,
+                        'Method': method_full_name,
+                        'Changes': len(mp.commits),
+                        'ChgLines': chg_lines
+                    })
 
 
-def mine(repo):
+def reset_changed_methods_and_save_name():
+    for _, changed_file in files.items():
+        for m in changed_file.methods:
+            m.previous_long_name = m.class_path + m.name
+            m.commits.clear()
+
+
+def mine(repo: str, from_tag: str = None, to_tag: str = None):
     # for c in RepositoryMining('C:/Users/aprodea/work/deloitte-tax-compare/.git').traverse_commits():
     # for c in RepositoryMining(repo, single='fea5cc2adb4838c2f005042c5ace1fbca9c43614',
     # only_modifications_with_file_types=['.cs']).traverse_commits():
-    for c in RepositoryMining(repo, only_modifications_with_file_types=['.cs']).traverse_commits():
+    c_count = 0
+    for c in RepositoryMining(repo,
+                              only_modifications_with_file_types=['.cs'],
+                              from_tag=from_tag,
+                              to_tag=to_tag,
+                              ).traverse_commits():
         # print('--->', c.msg)
+        c_count += 1
         commit = Commit(c.committer_date, c.committer, c.msg, c.hash)
 
         # print(c.modifications)
         for mod in c.modifications:
-            if mod.filename.endswith('.cs'):
+            if not mod.filename.endswith('.cs'):
+                continue
+            try:
                 if mod.change_type == ModificationType.ADD:
                     # add all methods for file
                     c_file = search_modified_file_or_create(mod.filename, mod.new_path)
@@ -432,14 +464,45 @@ def mine(repo):
                         c_file = search_modified_file_or_create(mod.filename, mod.new_path)
 
                     check_and_update_methods(c_file, commit, mod)
+            except Exception as e:
+                print(e)
+                print('Commit {} {} {}'.format(c.hash, c.msg, c.committer_date))
+                print('Modification {}'.format(mod.filename))
+                print(mod.diff_parsed)
+
+    print("commits parsed: ", c_count)
 
 
-mine('C:/Users/aprodea/work/deloitte-tax-compare/.git')
-# mine('https://github.com/ana28p/testing-with-csharp.git')
+def mine_before_and_after_tag(repo: str, tag: str, save_location: str):
+    print('========================== mine to tag ==========================')
+    start_time = time.time()
 
-print("--- %s seconds ---" % (time.time() - start_time))
+    mine(repo, to_tag=tag)
+    write_to_csv(save_location + '/commits-to-' + tag + '.csv')
 
-# for k, m in changed_methods.items():
-#     print(k, ' name: ', m.name, ' modifications:', len(m.modifications))
-write_to_csv(files)
-# print_actual_files()
+    print("--- %s seconds ---" % (time.time() - start_time))
+
+    reset_changed_methods_and_save_name()
+
+    print('========================== mine from tag ==========================')
+    start_time = time.time()
+
+    mine(repo, from_tag=tag)
+    write_to_csv(save_location + '/commits-from-' + tag + '.csv', include_prev_name=True)
+
+    print("--- %s seconds ---" % (time.time() - start_time))
+
+
+if __name__ == '__main__':
+
+    # mine('https://github.com/ana28p/testing-with-csharp.git')
+
+    # mine_before_and_after_tag(repo='C:/Users/aprodea/work/deloitte-tax-compare/.git',
+    #                           tag='1.1.1_june_2017',
+    #                           save_location='C:/Users/aprodea/work/metrics-tax-compare/commits')
+
+    mine_before_and_after_tag(repo='C:/Users/aprodea/work/experiment-projects/sharex/commits',
+                              tag='v12.0.0',
+                              save_location='C:/Users/aprodea/work/experiment-projects/sharex/ShareX/.git')
+
+    # print_actual_files()
