@@ -26,6 +26,7 @@ class ChangedMethod:
         self.name = name
         self.class_path = class_path
         self.commits = []
+        self.previous_long_name = ''
 
 
 # class ModificationType(Enum):

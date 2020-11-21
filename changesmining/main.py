@@ -501,7 +501,8 @@ if __name__ == '__main__':
     #                           tag='1.1.1_june_2017',
     #                           save_location='C:/Users/aprodea/work/metrics-tax-compare/commits')
 
-    mine_before_and_after_tag(repo='C:/Users/aprodea/work/experiment-projects/sharex/ShareX/.git',
+    # mine_before_and_after_tag(repo='C:/Users/aprodea/work/experiment-projects/sharex/ShareX/.git',
+    mine_before_and_after_tag(repo='https://github.com/ShareX/ShareX.git',
                               tag='v12.0.0',
                               save_location='C:/Users/aprodea/work/experiment-projects/sharex/commits')
 
