@@ -1,37 +1,23 @@
-import csv
-from xml.etree import ElementTree
 import pandas as pd
-from sklearn import preprocessing
-import matplotlib.pyplot as plt
-import numpy as np
-import os
-from matplotlib.ticker import StrMethodFormatter
-import statsmodels.api as sm
-import scipy.stats as stats
-from pyclustertend import hopkins, vat, assess_tendency_by_mean_metric_score
-from sklearn.preprocessing import scale, MinMaxScaler, minmax_scale, RobustScaler,robust_scale
+from pyclustertend import hopkins
 from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score, accuracy_score, precision_score
+import sklearn.metrics as compute_metrics
 from sklearn.metrics.cluster import adjusted_rand_score
 from sklearn import mixture
 import statistics
-import seaborn as sns
+import logging
+import time
 
 
+metrics_file = "C:/Users/aprodea/work/metrics-tax-compare/merged/merged_filledna.csv"
 metrics_list = ['LOC', 'CC', 'NP', 'NV', 'NEST', 'Ca', 'Ce', 'NChg', 'NCall']
+save_to_location = "C:/Users/aprodea/work/metrics-tax-compare/classification/1_"
 
 
 def get_data():
     print('Read data')
-    file = "C:/Users/aprodea/work/metrics-tax-compare/merged/merged_filledna.csv"
-    data = pd.read_csv(file, sep=';')
+    data = pd.read_csv(metrics_file, sep=';')
     return data
-
-
-# def get_columns_list_of_metrics(data):
-#     list_columns = data.columns.tolist()
-#     list_columns.remove('Method')
-#     return list_columns
 
 
 def scale_data(data):
@@ -40,7 +26,7 @@ def scale_data(data):
     for col_name in data[metrics_list]:
         col = scaled_data[col_name]
         min_col, max_col = col.min(), col.max()
-        # min_col = 0  # consider min as 0 to perserve the importance of values; eg LOC 25, 50 -> 0.5, 1
+        # min_col = 0  # consider min as 0 to preserve the importance of values; eg LOC 25, 50 -> 0.5, 1
         #     print(col_name, min_col, max_col)
         scaled_data[col_name] = (col - min_col) / (max_col - min_col)
 
@@ -121,39 +107,42 @@ def em_clustering(data, rand_state):
 
 
 def analysis(rand_state):
-    print('Start')
+    logging.basicConfig(filename=save_to_location + 'info.log', level=logging.INFO,
+                        format='%(asctime)s %(message)s', datefmt='%d/%m/%Y %H:%M:%S')
+    logging.info('Started')
+    logging.info('Reading metrics from file ' + metrics_file)
+    logging.info('Analyse data based on variables ' + ', '.join(metrics_list))
+
     merged_data = get_data()
     scaled_data = scale_data(merged_data)
 
-    print('Hopkins test result: ', hopkins_test(scaled_data))
+    logging.info('Hopkins test result on scaled data: ' + str(hopkins_test(scaled_data)))
+    start_time = time.time()
 
     threshold_cluster_data = threshold_clustering(scaled_data)
     data_threshold_classified = merge_clevel_in_data(merged_data, threshold_cluster_data)
-    # data_threshold_classified.to_csv(
-    #     "C:/Users/aprodea/work/metrics-tax-compare/classification/threshold.csv", sep=';', index=False)
+    # data_threshold_classified.to_csv(save_to_location + "threshold.csv", sep=';', index=False)
+
+    text = 'Ended threshold classification in {:.3f} seconds'.format(time.time() - start_time)
+    logging.info(text)
+    start_time = time.time()
 
     k_means_cluster_data = k_means_clustering(scaled_data, rand_state=rand_state)
     data_k_means_classified = merge_clevel_in_data(merged_data, k_means_cluster_data)
-    # data_k_means_classified.to_csv(
-    #     "C:/Users/aprodea/work/metrics-tax-compare/classification/k_means.csv", sep=';', index=False)
+    # data_k_means_classified.to_csv(save_to_location + "k_means.csv", sep=';', index=False)
+
+    text = 'Ended K means classification in {:.3f} seconds'.format(time.time() - start_time)
+    logging.info(text)
+    start_time = time.time()
 
     em_cluster_data = em_clustering(scaled_data, rand_state=rand_state)
     data_em_classified = merge_clevel_in_data(merged_data, em_cluster_data)
-    # data_em_classified.to_csv(
-    #     "C:/Users/aprodea/work/metrics-tax-compare/classification/em.csv", sep=';', index=False)
+    # data_em_classified.to_csv(save_to_location + "em.csv", sep=';', index=False)
 
-    # h_threshold_methods = data_threshold_classified[data_threshold_classified['CLevel'] == "high"]['Method'].to_numpy()
-    # r_threshold_methods = data_threshold_classified[data_threshold_classified['CLevel'] == "regular"]['Method'].to_numpy()
-    # l_threshold_methods = data_threshold_classified[data_threshold_classified['CLevel'] == "low"]['Method'].to_numpy()
-    #
-    # h_k_means_methods = data_k_means_classified[data_k_means_classified['CLevel'] == "high"]['Method'].to_numpy()
-    # r_k_means_methods = data_k_means_classified[data_k_means_classified['CLevel'] == "regular"]['Method'].to_numpy()
-    # l_k_means_methods = data_k_means_classified[data_k_means_classified['CLevel'] == "low"]['Method'].to_numpy()
-    #
-    # h_em_methods = data_em_classified[data_em_classified['CLevel'] == "high"]['Method'].to_numpy()
-    # r_em_methods = data_em_classified[data_em_classified['CLevel'] == "regular"]['Method'].to_numpy()
-    # l_em_methods = data_em_classified[data_em_classified['CLevel'] == "low"]['Method'].to_numpy()
+    text = 'Ended EM classification in {:.3f} seconds'.format(time.time() - start_time)
+    logging.info(text)
 
+    data_threshold_classified.rename(columns={'CLevel': 'CLevel_threshold'}, inplace=True)
     k_means_labels = data_k_means_classified[["Method", "CLevel"]]
     k_means_labels.columns = ["Method", "CLevel_k_means"]
     em_labels = data_em_classified[["Method", "CLevel"]]
@@ -162,8 +151,9 @@ def analysis(rand_state):
     data_all_labels = pd.merge(data_threshold_classified, k_means_labels[["Method", "CLevel_k_means"]], on='Method', how='left')
     data_all_labels = pd.merge(data_all_labels, em_labels[["Method", "CLevel_em"]], on='Method', how='left')
 
-    data_all_labels.to_csv(
-        "C:/Users/aprodea/work/metrics-tax-compare/classification/all_labels.csv", sep=';', index=False)
+    data_all_labels.to_csv(save_to_location + "all_labels.csv", sep=';', index=False)
+
+    logging.info('Finished')
 
 
 def test_determinism_k_means(data, times, rand_state):
@@ -207,26 +197,74 @@ def calculate_determinism():
 
 
 def compare_results():
-    metrics_file = "C:/Users/aprodea/work/metrics-tax-compare/classification/all_labels.csv"
-    metrics_labelled_data = pd.read_csv(metrics_file, sep=';')
+    metrics_labelled_file = save_to_location + "all_labels.csv"
+    metrics_labelled_data = pd.read_csv(metrics_labelled_file, sep=';')
 
     # test_cov_file = "C:/Users/aprodea/work/metrics-tax-compare/merged/test_coverage_org.csv"
     # test_data = pd.read_csv(test_cov_file, sep=';')
     #
-    # data_combined = pd.merge(metrics_labelled_data[['Method', 'CLevel', 'CLevel_k_means', 'CLevel_em']], test_data,
-    #                          on='Method', how='left')
+    # data_combined = pd.merge(metrics_labelled_data[['Method', 'CLevel_threshold', 'CLevel_k_means', 'CLevel_em']],
+    #                          test_data, on='Method', how='left')
 
-    labels_var = ['CLevel', 'CLevel_k_means', 'CLevel_em']
+    labels_var = ['CLevel_threshold', 'CLevel_k_means', 'CLevel_em']
     for l1 in labels_var:
         for l2 in labels_var:
             ari = adjusted_rand_score(metrics_labelled_data[l1].tolist(), metrics_labelled_data[l2].tolist())
-            pr = precision_score(metrics_labelled_data[l1].tolist(), metrics_labelled_data[l2].tolist(),
-                                 labels=['high', 'regular', 'low'], average=None)
-            acc = accuracy_score(metrics_labelled_data[l1].tolist(), metrics_labelled_data[l2].tolist())
+            pr = compute_metrics.precision_score(metrics_labelled_data[l1].tolist(), metrics_labelled_data[l2].tolist(),
+                                                 labels=['high', 'regular', 'low'], average=None)
+            acc = compute_metrics.accuracy_score(metrics_labelled_data[l1].tolist(), metrics_labelled_data[l2].tolist())
             print('{}  to  {}  ari: {}  precision: {}  accuracy: {}'.format(l1, l2, ari, pr, acc))
 
 
+def print_cm(cm, labels):
+    """pretty print for confusion matrixes"""
+    column_width = 10
+    # Print header
+    header = " " * column_width
+    for label in labels:
+        header += "%{0}s".format(column_width) % label
+    print(header)
+    # Print rows
+    for i, label1 in enumerate(labels):
+        row_text = "%{0}s".format(column_width) % label1
+        for j in range(len(labels)):
+            cell = "%{0}.1f".format(column_width) % cm[i, j]
+            row_text += cell
+        print(row_text)
+
+
+def classification_report(real, predicted):
+    labels = ['high', 'regular', 'low']
+    ari = adjusted_rand_score(labels_true=real, labels_pred=predicted)
+    acc = compute_metrics.accuracy_score(y_true=real, y_pred=predicted)
+    report = compute_metrics.classification_report(y_true=real, y_pred=predicted, labels=labels)
+    conf_matrix = compute_metrics.confusion_matrix(y_true=real, y_pred=predicted, labels=labels)
+    print('ARI ', ari)
+    print('Accuracy ', acc)
+    print(report)
+    print('Confusion matrix')
+    print_cm(conf_matrix, labels)
+
+
+def classification_report_for_all():
+    real_labels_file = "C:/Users/aprodea/work/metrics-tax-compare/classification/methods_labelled.csv"
+    real_labels_data = pd.read_csv(real_labels_file, sep=';')
+
+    metrics_labelled_file = save_to_location + "all_labels.csv"
+    metrics_labelled_data = pd.read_csv(metrics_labelled_file, sep=';')
+
+    data_combined = pd.merge(left=real_labels_data,
+                             right=metrics_labelled_data[['Method', 'CLevel_threshold', 'CLevel_k_means', 'CLevel_em']],
+                             on='Method', how='left')
+
+    pred_labels_var = ['CLevel_threshold', 'CLevel_k_means', 'CLevel_em']
+    for y_pred in pred_labels_var:
+        print('------- {} ------'.format(y_pred))
+        classification_report(data_combined['CLevel'], data_combined[y_pred])
+
+
 if __name__ == '__main__':
-    # analysis(42)
-    compare_results()
+    # analysis(rand_state=42)
+    classification_report_for_all()
+    # compare_results()
     # calculate_determinism()
