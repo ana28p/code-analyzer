@@ -15,6 +15,7 @@ from utils.change import ChangedFile, ChangedMethod, Commit, MethodsSplit
 
 changed_methods = {}
 files = {}
+commit_deleted_methods = {}
 PATTERN = re.compile("(?:namespace|class|struct)\\s(.*?)(?:\\s|\\s?{)")
 
 
@@ -296,9 +297,17 @@ def possible_rename_check(mod: Modification):
 #             check_and_update_class_rename(c_file, mod)
 
 
-def remove_methods(c_file: ChangedFile, obsolete_methods: List[str]):
+def add_to_trash(methods: List[ChangedMethod], commit: Commit):
+    if commit in commit_deleted_methods:
+        commit_deleted_methods[commit].append(methods)
+    else:
+        commit_deleted_methods[commit] = [methods]
+
+
+def remove_methods(c_file: ChangedFile, obsolete_methods: List[str], commit: Commit):
     to_remove = [m for m in c_file.methods if (m.class_path + m.name) in obsolete_methods]
     c_file.methods = [m for m in c_file.methods if m not in to_remove]
+    add_to_trash(to_remove, commit)
 
 
 def get_map_of_methods(methods: List[str]):
@@ -342,7 +351,7 @@ def check_and_update_methods(c_file: ChangedFile, commit: Commit, modification: 
 
     if len(methods.names_obsolete) > 0:  # removed or renamed
         if len(methods.names_new) == 0:  # no new => only removed
-            remove_methods(c_file, methods.names_obsolete)
+            remove_methods(c_file, methods.names_obsolete, commit)
         else:
             # in case methods were updated and their namespace or class renamed, they will appear as obs and new
             updated_obs = []
@@ -376,7 +385,7 @@ def check_and_update_methods(c_file: ChangedFile, commit: Commit, modification: 
             # remove obsolete methods that were not updated
             if len(updated_obs) != len(methods.names_obsolete):
                 to_remove = [val for val in methods.names_obsolete if val not in updated_obs]
-                remove_methods(c_file, to_remove)
+                remove_methods(c_file, to_remove, commit)
 
     for m in methods.names_new:
         update_or_create_method_using_str(c_file, m, commit)
@@ -424,6 +433,27 @@ def write_to_csv(file_path: str, include_prev_name: bool = False):
                     })
 
 
+def write_to_cvs_trash(file_path):
+    with open(file_path, 'w') as csvfile:
+        fieldnames = ['Commit_hash', 'Date', 'Method', 'Changes', 'ChgLines']
+        file_writer = csv.DictWriter(csvfile, fieldnames, delimiter=';', lineterminator='\n')
+        file_writer.writeheader()
+        for commit, methods in commit_deleted_methods.items():
+            flat_list = [item for sublist in methods for item in sublist]
+            for mp in flat_list:
+                method_full_name = (mp.class_path + mp.name)
+                chg_lines = sum([c.changed_lines for c in mp.commits])
+                file_writer.writerow({
+                    'Commit_hash': commit.commit_hash,
+                    'Date': commit.date,
+                    'Method': method_full_name,
+                    'Changes': len(mp.commits),
+                    'ChgLines': chg_lines
+                })
+    # clear the list of removed
+    commit_deleted_methods.clear()
+
+
 def reset_changed_methods_and_save_name():
     for _, changed_file in files.items():
         for m in changed_file.methods:
@@ -456,7 +486,8 @@ def mine(repo: str, from_tag: str = None, to_tag: str = None):
                     add_methods(c_file, mod.methods, commit)
                 elif mod.change_type == ModificationType.DELETE:
                     # delete file (and its methods)
-                    files.pop(mod.old_path)
+                    removed = files.pop(mod.old_path)
+                    add_to_trash(removed.methods, commit)
                 else:
                     if mod.change_type == ModificationType.RENAME:
                         c_file = update_modified_file(mod.filename, mod.old_path, mod.new_path)
@@ -482,7 +513,10 @@ def mine_before_and_after_tag(repo: str, tag: str, save_location: str):
 
     print("--- %s seconds ---" % (time.time() - start_time))
 
+    # remove the commits from the methods and save their current long name in the previous_name field
     reset_changed_methods_and_save_name()
+
+    write_to_cvs_trash(save_location + '/removed-to-' + tag + '.csv')
 
     print('========================== mine from tag ==========================')
     start_time = time.time()
@@ -492,6 +526,8 @@ def mine_before_and_after_tag(repo: str, tag: str, save_location: str):
 
     print("--- %s seconds ---" % (time.time() - start_time))
 
+    write_to_cvs_trash(save_location + '/removed-from-' + tag + '.csv')
+
 
 if __name__ == '__main__':
 
@@ -499,11 +535,11 @@ if __name__ == '__main__':
 
     # mine_before_and_after_tag(repo='C:/Users/aprodea/work/deloitte-tax-compare/.git',
     #                           tag='1.1.1_june_2017',
-    #                           save_location='C:/Users/aprodea/work/metrics-tax-compare/commits')
+    #                           save_location='C:/Users/aprodea/work/metrics-tax-compare/commits/new')
 
     # mine_before_and_after_tag(repo='C:/Users/aprodea/work/experiment-projects/sharex/ShareX/.git',
     mine_before_and_after_tag(repo='https://github.com/ShareX/ShareX.git',
                               tag='v12.0.0',
-                              save_location='C:/Users/aprodea/work/experiment-projects/sharex/commits')
+                              save_location='C:/Users/aprodea/work/experiment-projects/sharex/commits/new')
 
     # print_actual_files()

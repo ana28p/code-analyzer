@@ -9,9 +9,13 @@ import logging
 import time
 
 
-metrics_file = "C:/Users/aprodea/work/metrics-tax-compare/merged/merged_filledna.csv"
-metrics_list = ['LOC', 'CC', 'NP', 'NV', 'NEST', 'Ca', 'Ce', 'NChg', 'NCall']
+metrics_file = "C:/Users/aprodea/work/metrics-tax-compare/research_v111/merged_filledna.csv"
 save_to_location = "C:/Users/aprodea/work/metrics-tax-compare/classification/1_"
+
+# metrics_file = "C:/Users/aprodea/work/experiment-projects/sharex/analysis/v12/merged/merged_filledna.csv"
+# save_to_location = "C:/Users/aprodea/work/experiment-projects/sharex/classification/1_"
+
+metrics_list = ['LOC', 'CC', 'NP', 'NV', 'NEST', 'Ca', 'Ce', 'NChg', 'NCall']
 
 
 def get_data():
@@ -268,3 +272,5 @@ if __name__ == '__main__':
     classification_report_for_all()
     # compare_results()
     # calculate_determinism()
+
+
