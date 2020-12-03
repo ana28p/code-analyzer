@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 
-from enum import Enum
-
-
 class ChangedFile:
     def __init__(self, filename, full_path):
         self.filename = filename
@@ -29,15 +26,6 @@ class ChangedMethod:
         self.previous_long_name = ''
 
 
-# class ModificationType(Enum):
-#     ADD = 1
-#     COPY = 2
-#     RENAME = 3
-#     DELETE = 4
-#     MODIFY = 5
-#     UNKNOWN = 6
-
-
 class Commit:
     def __init__(self, date, author, msg, c_hash):
         self.date = date
@@ -45,12 +33,6 @@ class Commit:
         self.msg = msg
         self.commit_hash = c_hash
         self.changed_lines = 0
-
-
-# class Modification:
-#     def __init__(self, commit: Commit, mod_type: ModificationType):
-#         self.commit = commit
-#         self.mod_type = mod_type
 
 
 class MethodsSplit:
@@ -72,3 +54,12 @@ class MethodsSplit:
 
         self.names_before_without_obsolete = [name_m for name_m in before_long_names if name_m not in self.names_obsolete]
         self.names_current_without_new = [name_m for name_m in current_long_names if name_m not in self.names_new]
+
+    def exist_new(self):
+        return len(self.new) > 0
+
+    def exist_obsolete(self):
+        return len(self.obsolete) > 0
+
+    def exist_updated(self):
+        return len(self.updated) > 0

@@ -40,18 +40,24 @@ def update_modified_file(filename: str, old_full_path: str, new_full_path: str) 
         return current_c_file
 
 
-def get_matches_for_method(changed_file: ChangedFile, commit_hash: str, method_long_name: str):
+def search_matches_for_method(changed_file: ChangedFile, method_long_name: str):
     matches = [m for m in changed_file.methods
                if (m.class_path + m.name).replace(' ', '') == method_long_name.replace(' ', '')]
-    if len(matches) == 0:
-        sig, _ = split_method_long_name(method_long_name)
-        # can be the case that two different commits change the method signature in different ways
-        # try to search for a method with the same name
-        matches = [m for m in changed_file.methods if m.name[:m.name.rfind('(')] == sig[:sig.rfind('(')]]
-        # if there are more matches with the same name;
-        # return an empty list such that the method will be added as new
-        if len(matches) > 1:
-            return []
+    # if len(matches) == 0:
+    #     sig, _ = split_method_long_name(method_long_name)
+    #     # can be the case that two different commits change the method signature in different ways
+    #     # try to search for a method with the same name
+    #     matches = [m for m in changed_file.methods if m.name[:m.name.rfind('(')] == sig[:sig.rfind('(')]]
+    #     # if there are more matches with the same name;
+    #     # return an empty list such that the method will be added as new
+    #     if len(matches) > 1:
+    #         return []
+
+    return matches
+
+
+def get_matches_for_method(changed_file: ChangedFile, commit_hash: str, method_long_name: str):
+    matches = search_matches_for_method(changed_file, method_long_name)
 
     if len(matches) > 1:
         raise ValueError('The method {} was not found (should be present) '
@@ -61,17 +67,26 @@ def get_matches_for_method(changed_file: ChangedFile, commit_hash: str, method_l
     return matches
 
 
-def update_or_create_method_using_str(changed_file: ChangedFile, method_long_name: str, commit: Commit):
+def create_method_using_str(changed_file: ChangedFile, method_long_name: str, commit: Commit):
+    method_signature, class_path = split_method_long_name(method_long_name)
 
+    m = ChangedMethod(method_signature, class_path)
+    m.commits.append(commit)
+    changed_file.methods.append(m)
+
+
+def update_or_create_method_using_str(changed_file: ChangedFile, method_long_name: str, commit: Commit):
     matches = get_matches_for_method(changed_file, commit.commit_hash, method_long_name)
 
     if len(matches) == 1:
         matches[0].commits.append(commit)
     elif len(matches) == 0:
-        method_signature, class_path = split_method_long_name(method_long_name)
-        m = ChangedMethod(method_signature, class_path)
-        m.commits.append(commit)
-        changed_file.methods.append(m)
+        create_method_using_str(changed_file, method_long_name, commit)
+
+
+def add_methods(changed_file: ChangedFile, methods: List[Method], commit: Commit):
+    for m in methods:
+        create_method_using_str(changed_file, m.long_name, commit)
 
 
 def get_method_content(source_code_lines):
@@ -128,18 +143,20 @@ def update_or_create_method(modification: Modification, changed_file: ChangedFil
     update_or_create_method_using_str(changed_file, method.long_name, commit_copy)
 
 
-def replace_and_update_method(modification: Modification,
-                              c_file: ChangedFile,
-                              commit: Commit,
-                              obs_m: Method,
-                              new_m: Method):
+def update_methods(modification: Modification, c_file: ChangedFile, methods: List[Method], commit: Commit):
+    for m in methods:
+        update_or_create_method(modification, c_file, m, commit)
+
+
+def replace_and_update_method(modification: Modification, c_file: ChangedFile, commit: Commit,
+                              before_m: Method, new_m: Method):
     commit_copy = copy.deepcopy(commit)
     try:
-        commit_copy.changed_lines = get_number_of_changed_lines(modification, current_method=new_m, prev_method=obs_m)
+        commit_copy.changed_lines = get_number_of_changed_lines(modification, current_method=new_m, prev_method=before_m)
     except Exception as e:
         print(e, "Commit msg: '{}' , hash {}".format(commit.msg, commit.commit_hash))
 
-    old_long_name = obs_m.long_name
+    old_long_name = before_m.long_name
     new_long_name = new_m.long_name
 
     matches = get_matches_for_method(c_file, commit.commit_hash, old_long_name)
@@ -151,9 +168,15 @@ def replace_and_update_method(modification: Modification,
         matches[0].commits.append(commit_copy)
 
 
-def add_methods(changed_file: ChangedFile, methods: List[Method], commit: Commit):
+def update_or_create_methods(modification: Modification, c_file: ChangedFile,
+                             methods: List[Method], commit: Commit):
     for m in methods:
-        update_or_create_method_using_str(changed_file, m.long_name, commit)
+        matches = search_matches_for_method(c_file, m.long_name)
+
+        if len(matches) == 0:
+            create_method_using_str(c_file, m.long_name, commit)
+        else:
+            update_or_create_method(modification, c_file, m, commit)
 
 
 def update_all_methods_with_new_class(c_file: ChangedFile, current_path: str, new_class_path: str):
@@ -177,17 +200,6 @@ def update_method_with_new_class(c_file: ChangedFile, method_name: str, current_
             break
 
 
-def possible_rename_check(mod: Modification):
-    diff = mod.diff.splitlines(1)
-    for i in range(len(diff)):
-        line = diff[i].lower()
-        if line.startswith('-') and (("namespace " in line)
-                                     or ("class " in line)
-                                     or ("struct " in line)):
-            return True
-    return False
-
-
 def add_to_trash(methods: List[ChangedMethod], commit: Commit):
     if commit in commit_deleted_methods:
         commit_deleted_methods[commit].append(methods)
@@ -201,6 +213,67 @@ def remove_methods(c_file: ChangedFile, obsolete_methods: List[str], commit: Com
     add_to_trash(to_remove, commit)
 
 
+def get_methods_before(modification: Modification, methods: List[Method]) -> List[Method]:
+    methods_long_names = [m.long_name for m in methods]
+    result = [m for m in modification.methods_before if m.long_name in methods_long_names]
+
+    return result
+
+
+# def validate_method_content(method_signature: str, content: List[str]):
+#     braces = 0
+#     start = 0
+#     end = -1
+#     is_the_method = False
+#     sig, _ = split_method_long_name(method_signature)
+#     for i in range(len(content)):
+#         line = content[i]
+#         if sig in line:
+#             start = i
+#             is_the_method = True
+#         if not is_the_method:
+#             continue
+#         for c in line:
+#             if c == '{':
+#                 braces += 1
+#             elif c == '}':
+#                 braces -= 1
+#         if braces == 0:
+#             # end of method
+#             end = i
+#             break
+#     return content[start:end]
+
+
+def get_dict_content_of_methods(source_code: str, methods: List[Method]):
+    methods_dict = {}
+    for m in methods:
+        content = source_code.splitlines()[m.start_line: m.end_line]
+        methods_dict[m.long_name] = content
+    return methods_dict
+
+
+def get_pairs_of_similar_methods(dict_methods1, dict_methods2):
+    pairs = []
+    copy_dict_methods2 = dict_methods2.copy()
+    for k1, c1 in dict_methods1.items():
+        sm = SequenceMatcher(isjunk=lambda x: x in " \t")  # ignore spaces and tabs
+        sm.set_seq2(''.join(c1))
+        to_replace = ('', '', 0)
+        for k2, c2 in copy_dict_methods2.items():
+            sm.set_seq1(''.join(c2))
+            sim = sm.ratio()
+            if sim > to_replace[2]:
+                to_replace = (k1, k2, sim)
+
+        m1, m2, similarity = to_replace
+        if similarity >= 0.6:
+            pairs.append((m1, m2))
+            copy_dict_methods2.pop(m2)  # remove it to don't check it again
+
+    return pairs
+
+
 def get_map_of_methods(methods: List[str]):
     methods_dict = {}
     for m in methods:
@@ -212,6 +285,17 @@ def get_map_of_methods(methods: List[str]):
     for v in methods_dict.values():
         v.sort()
     return methods_dict
+
+
+def possible_rename_check(mod: Modification):
+    diff = mod.diff.splitlines(1)
+    for i in range(len(diff)):
+        line = diff[i].lower()
+        if line.startswith('-') and (("namespace " in line)
+                                     or ("class " in line)
+                                     or ("struct " in line)):
+            return True
+    return False
 
 
 def check_for_rename(modification: Modification, c_file: ChangedFile, methods: MethodsSplit) -> dict:
@@ -233,6 +317,133 @@ def check_for_rename(modification: Modification, c_file: ChangedFile, methods: M
                 update_methods_with_new_class(c_file, before, b_cls_path, cls_path)
                 renamed[b_cls_path] = cls_path
     return renamed
+
+
+def handle_new_updated(modification: Modification, m_new, m_updated,
+                       c_file: ChangedFile, commit: Commit):
+    updated_before = get_methods_before(modification, m_updated)
+    d_updated_before = get_dict_content_of_methods(modification.source_code_before, updated_before)
+
+    d_new = get_dict_content_of_methods(modification.source_code, m_new)
+    d_updated = get_dict_content_of_methods(modification.source_code, m_updated)
+    d_current = {**d_new, **d_updated}
+
+    m_pairs = get_pairs_of_similar_methods(d_updated_before, d_current)
+
+    print('for commit ', commit.commit_hash, commit.msg, commit.date)
+    print('file ', c_file.filename)
+    print('pairs', [(r, l) for r, l in m_pairs])
+
+    for before_m_name, current_m_name in m_pairs:
+        before_m = next(m for m in updated_before if m.long_name == before_m_name)
+        current_m = next(m for m in (m_new + m_updated) if m.long_name == current_m_name)
+        replace_and_update_method(modification, c_file, commit, before_m, current_m)
+        d_current.pop(current_m_name)
+
+    # add or update the rest
+    rest = [m for m in (m_new + m_updated) if m.long_name in list(d_current.keys())]
+    update_or_create_methods(modification, c_file, rest, commit)
+
+
+def handle_new_obsolete(renamed: dict, modification: Modification, m_new, m_obsolete,
+                        c_file: ChangedFile, commit: Commit):
+    d_obsolete = get_dict_content_of_methods(modification.source_code_before, m_obsolete)
+
+    d_new = get_dict_content_of_methods(modification.source_code, m_new)
+
+    m_pairs = get_pairs_of_similar_methods(d_obsolete, d_new)
+
+    print('for commit ', commit.commit_hash, commit.msg, commit.date)
+    print('file ', c_file.filename)
+    print('pairs', [(r, l) for r, l in m_pairs])
+
+    for before_m_name, current_m_name in m_pairs:
+        before_m = next(m for m in m_obsolete if m.long_name == before_m_name)
+        current_m = next(m for m in m_new if m.long_name == current_m_name)
+        replace_and_update_method(modification, c_file, commit, before_m, current_m)
+        d_obsolete.pop(before_m_name)
+        d_new.pop(current_m_name)
+
+    # add or update the rest
+    rest = [m for m in m_new if m.long_name in list(d_new.keys())]
+    update_or_create_methods(modification, c_file, rest, commit)
+
+    # remove the rest of obsolete
+    remove_methods(c_file, list(d_obsolete.keys()), commit)
+
+
+def handle_new_obsolete_updated(modification: Modification, m_new: List[Method], m_obsolete: List[Method],
+                                m_updated: List[Method], c_file: ChangedFile, commit: Commit):
+
+    updated_before = get_methods_before(modification, m_updated)
+    d_updated_before = get_dict_content_of_methods(modification.source_code_before, updated_before)
+    d_obsolete = get_dict_content_of_methods(modification.source_code_before, m_obsolete)
+    d_before = {**d_updated_before, **d_obsolete}
+
+    d_new = get_dict_content_of_methods(modification.source_code, m_new)
+    d_updated = get_dict_content_of_methods(modification.source_code, m_updated)
+    d_current = {**d_new, **d_updated}
+
+    m_pairs = get_pairs_of_similar_methods(d_before, d_current)
+
+    print('for commit ', commit.commit_hash, commit.msg, commit.date)
+    print('file ', c_file.filename)
+    print('pairs', [(r, l) for r, l in m_pairs])
+
+    for before_m_name, current_m_name in m_pairs:
+        before_m = next(m for m in (m_obsolete + updated_before) if m.long_name == before_m_name)
+        current_m = next(m for m in (m_new + m_updated) if m.long_name == current_m_name)
+        replace_and_update_method(modification, c_file, commit, before_m, current_m)
+        d_before.pop(before_m_name)
+        d_current.pop(current_m_name)
+
+    # add or update the rest
+    rest = [m for m in (m_new + m_updated) if m.long_name in list(d_current.keys())]
+    update_or_create_methods(modification, c_file, rest, commit)
+
+    # remove the rest of obsolete
+    remove_methods(c_file, list(d_before.keys()), commit)
+
+
+def check_and_update_methods2(modification: Modification, c_file: ChangedFile, commit: Commit):
+    methods = MethodsSplit(modification)
+
+    renamed = check_for_rename(modification, c_file, methods)
+
+    if methods.exist_new() and not methods.exist_obsolete() and not methods.exist_updated():
+        # add all
+        add_methods(c_file, methods.new, commit)
+
+    elif methods.exist_updated() and not methods.exist_new() and not methods.exist_obsolete():
+        # update all
+        update_methods(modification, c_file, methods.updated, commit)
+
+    elif methods.exist_obsolete() and not methods.exist_new() and not methods.exist_updated():
+        # remove all
+        remove_methods(c_file, methods.names_obsolete, commit)
+
+    elif methods.exist_obsolete() and methods.exist_updated() and not methods.exist_new():
+        # remove obsolete and update the updated methods
+        remove_methods(c_file, methods.names_obsolete, commit)
+        update_methods(modification, c_file, methods.updated, commit)
+
+    elif methods.exist_new() and methods.exist_updated() and not methods.exist_obsolete():
+        # get updated before and do similarity check between these and new + current updated
+        # maybe the content of a new method is actually an updated method
+        handle_new_updated(modification, methods.new, methods.updated, c_file, commit)
+
+    elif methods.exist_new() and methods.exist_obsolete() and not methods.exist_updated():
+        # get obsolete and do similarity check between these and new
+        # maybe the content of a new method is actually an obsolete method; rename
+        # check also for possible rename of the namespace/class
+        handle_new_obsolete(renamed, modification, methods.new, methods.obsolete, c_file, commit)
+
+    else:  # obsolete & new & updated
+        # get obsolete and updated before and check between those and new + current updated
+        # check also for possible rename of the namespace/class
+        handle_new_obsolete_updated(modification, methods.new, methods.obsolete, methods.updated, c_file, commit)
+
+    pass
 
 
 def check_and_update_methods(c_file: ChangedFile, commit: Commit, modification: Modification):
@@ -307,27 +518,28 @@ def mine(repository: str, from_tag: str = None, to_tag: str = None):
             if not mod.filename.endswith('.cs'):
                 continue
             count_commit = True
-            try:
-                if mod.change_type == ModificationType.ADD:
-                    # add all methods for file
-                    c_file = search_modified_file_or_create(mod.filename, mod.new_path)
-                    add_methods(c_file, mod.methods, commit)
-                elif mod.change_type == ModificationType.DELETE:
-                    # delete file (and its methods)
-                    removed = files.pop(mod.old_path)
-                    add_to_trash(removed.methods, commit)
+            # try:
+            if mod.change_type == ModificationType.ADD:
+                # add all methods for file
+                c_file = search_modified_file_or_create(mod.filename, mod.new_path)
+                add_methods(c_file, mod.methods, commit)
+            elif mod.change_type == ModificationType.DELETE:
+                # delete file (and its methods)
+                removed = files.pop(mod.old_path)
+                add_to_trash(removed.methods, commit)
+            else:
+                if mod.change_type == ModificationType.RENAME:
+                    c_file = update_modified_file(mod.filename, mod.old_path, mod.new_path)
                 else:
-                    if mod.change_type == ModificationType.RENAME:
-                        c_file = update_modified_file(mod.filename, mod.old_path, mod.new_path)
-                    else:
-                        c_file = search_modified_file_or_create(mod.filename, mod.new_path)
+                    c_file = search_modified_file_or_create(mod.filename, mod.new_path)
 
-                    check_and_update_methods(c_file, commit, mod)
-            except Exception as e:
-                print(e)
-                print('Commit {} {} {}'.format(c.hash, c.msg, c.committer_date))
-                print('Modification {}'.format(mod.filename))
-                print(mod.diff_parsed)
+                # check_and_update_methods(c_file, commit, mod)
+                check_and_update_methods2(mod, c_file, commit)
+            # except Exception as e:
+            #     print(e)
+            #     print('Commit {} {} {}'.format(c.hash, c.msg, c.committer_date))
+            #     print('Modification {}'.format(mod.filename))
+            #     print(mod.diff_parsed)
         if count_commit:
             c_count += 1
 
@@ -379,21 +591,23 @@ if __name__ == '__main__':
     # tag = '1.1.1_june_2017'
     # save_location = 'C:/Users/aprodea/work/metrics-tax-compare/commits/new'
 
-    use_repo = 'https://github.com/ShareX/ShareX.git'
-    use_tag = 'v12.0.0'
-    save_to_location = 'C:/Users/aprodea/work/experiment-projects/sharex/commits/v12.0.0'
+    # use_repo = 'https://github.com/ShareX/ShareX.git'
+    # use_tag = 'v12.0.0'
+    # save_to_location = 'C:/Users/aprodea/work/experiment-projects/sharex/commits/v12.0.0'
 
     # repo = 'https://github.com/OptiKey/OptiKey.git'
     # repo = 'C:/Users/aprodea/work/experiment-projects/optikey/OptiKey/.git'
     # tag = 'v3.0.0'
     # save_location = 'C:/Users/aprodea/work/experiment-projects/optikey/commits/v3.0.0'
 
-    # mine('https://github.com/ana28p/testing-with-csharp.git')
+    # use_repo = 'https://github.com/ana28p/testing-with-csharp.git'
+    use_repo = 'C:/Users/aprodea/work/testing/DummySolution/.git'
+    save_to_location = 'C:/Users/aprodea/work/testing'
 
-    mine_before_and_after_tag(repo=use_repo,
-                              tag=use_tag,
-                              save_location=save_to_location)
+    # mine_before_and_after_tag(repo=use_repo,
+    #                           tag=use_tag,
+    #                           save_location=save_to_location)
 
-    # mine_and_save_output(repo=repo, save_location=save_location)
+    mine_and_save_output(repo=use_repo, save_location=save_to_location)
 
     # print_actual_files(files)
