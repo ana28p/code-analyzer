@@ -60,10 +60,9 @@ def get_matches_for_method(changed_file: ChangedFile, commit_hash: str, method_l
     matches = search_matches_for_method(changed_file, method_long_name)
 
     if len(matches) > 1:
-        raise ValueError('The method {} was not found (should be present) '
-                         'or too many matches {} for file {} in commit {}'
-                         .format(method_long_name, [(m.class_path + m.name) for m in matches],
-                                 changed_file.full_path, commit_hash))
+        print('The method {} has too many matches {} for file {} in commit {}'
+              .format(method_long_name, [(m.class_path + m.name) for m in matches],
+                      changed_file.full_path, commit_hash))
     return matches
 
 
@@ -125,8 +124,9 @@ def get_number_of_changed_lines(modification: Modification, current_method: Meth
     if prev_method is None:
         result = [m for m in modification.methods_before if m.long_name == current_method.long_name]
         if len(result) != 1:
-            raise Exception("One method with signature {} should exist in previous methods. Currently {} occurrence(s)"
-                            .format(current_method.long_name, len(result)))
+            print("One method with signature {} should exist in previous methods. Currently {} occurrence(s)"
+                  .format(current_method.long_name, len(result)))
+            return 0
         prev_method = result[0]
 
     return compare_methods(modification, prev_method, current_method)
@@ -166,6 +166,9 @@ def replace_and_update_method(modification: Modification, c_file: ChangedFile, c
         matches[0].name = signature
         matches[0].class_path = class_path
         matches[0].commits.append(commit_copy)
+    else:
+        print('Method not found {}, or too many matches. Current matches {}'.format(old_long_name, matches))
+        print("Commit msg: '{}', hash {}".format(commit.msg, commit.commit_hash))
 
 
 def update_or_create_methods(modification: Modification, c_file: ChangedFile,
@@ -330,9 +333,9 @@ def handle_new_updated(modification: Modification, m_new, m_updated,
 
     m_pairs = get_pairs_of_similar_methods(d_updated_before, d_current)
 
-    print('for commit ', commit.commit_hash, commit.msg, commit.date)
-    print('file ', c_file.filename)
-    print('pairs', [(r, l) for r, l in m_pairs])
+    # print('for commit ', commit.commit_hash, commit.msg, commit.date)
+    # print('file ', c_file.filename)
+    # print('pairs', [(r, l) for r, l in m_pairs])
 
     for before_m_name, current_m_name in m_pairs:
         before_m = next(m for m in updated_before if m.long_name == before_m_name)
@@ -353,9 +356,9 @@ def handle_new_obsolete(renamed: dict, modification: Modification, m_new, m_obso
 
     m_pairs = get_pairs_of_similar_methods(d_obsolete, d_new)
 
-    print('for commit ', commit.commit_hash, commit.msg, commit.date)
-    print('file ', c_file.filename)
-    print('pairs', [(r, l) for r, l in m_pairs])
+    # print('for commit ', commit.commit_hash, commit.msg, commit.date)
+    # print('file ', c_file.filename)
+    # print('pairs', [(r, l) for r, l in m_pairs])
 
     for before_m_name, current_m_name in m_pairs:
         before_m = next(m for m in m_obsolete if m.long_name == before_m_name)
@@ -386,9 +389,9 @@ def handle_new_obsolete_updated(modification: Modification, m_new: List[Method],
 
     m_pairs = get_pairs_of_similar_methods(d_before, d_current)
 
-    print('for commit ', commit.commit_hash, commit.msg, commit.date)
-    print('file ', c_file.filename)
-    print('pairs', [(r, l) for r, l in m_pairs])
+    # print('for commit ', commit.commit_hash, commit.msg, commit.date)
+    # print('file ', c_file.filename)
+    # print('pairs', [(r, l) for r, l in m_pairs])
 
     for before_m_name, current_m_name in m_pairs:
         before_m = next(m for m in (m_obsolete + updated_before) if m.long_name == before_m_name)
@@ -442,8 +445,6 @@ def check_and_update_methods2(modification: Modification, c_file: ChangedFile, c
         # get obsolete and updated before and check between those and new + current updated
         # check also for possible rename of the namespace/class
         handle_new_obsolete_updated(modification, methods.new, methods.obsolete, methods.updated, c_file, commit)
-
-    pass
 
 
 def check_and_update_methods(c_file: ChangedFile, commit: Commit, modification: Modification):
@@ -585,7 +586,8 @@ def mine_before_and_after_tag(repo: str, tag: str, save_location: str):
 
 if __name__ == '__main__':
 
-    # repo = 'C:/Users/aprodea/work/deloitte-tax-compare/.git'
+    use_repo = 'C:/Users/aprodea/work/deloitte-tax-compare/.git'
+    save_to_location = 'C:/Users/aprodea/work/metrics-tax-compare/commits/last'
 
     # repo = 'C:/Users/aprodea/work/experiment-projects/sharex/ShareX/.git'
     # tag = '1.1.1_june_2017'
@@ -601,8 +603,8 @@ if __name__ == '__main__':
     # save_location = 'C:/Users/aprodea/work/experiment-projects/optikey/commits/v3.0.0'
 
     # use_repo = 'https://github.com/ana28p/testing-with-csharp.git'
-    use_repo = 'C:/Users/aprodea/work/testing/DummySolution/.git'
-    save_to_location = 'C:/Users/aprodea/work/testing'
+    # use_repo = 'C:/Users/aprodea/work/testing/DummySolution/.git'
+    # save_to_location = 'C:/Users/aprodea/work/testing'
 
     # mine_before_and_after_tag(repo=use_repo,
     #                           tag=use_tag,
