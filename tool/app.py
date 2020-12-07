@@ -1,5 +1,4 @@
 import os
-import sys
 import pathlib as pl
 from urllib.parse import quote as urlquote
 
@@ -12,7 +11,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 
-from flask import Flask, send_from_directory, send_file
+from flask import send_file
 
 import numpy as np
 import pandas as pd
@@ -48,6 +47,9 @@ The clustering is based on the selected variables. The computing and rendering o
 
 @server.route("/download/<path:path>")
 def download(path):
+    print('download', path)
+    # if '/app/app/' in path:
+    #     path = path.replace('/app/app/', '')
     return send_file(path, mimetype='text/csv', as_attachment=True)
 
 
@@ -338,12 +340,14 @@ def get_uncoverage_percentage(row):
     return round(percentage, 2)
 
 
-def file_download_link(project_name, data):
+def file_download_link(project_name, result):
     """Create a Plotly Dash 'A' element that downloads a file from the app."""
     filename_path = os.path.join("data", project_name, "result.csv")
     path = os.path.join(APP_PATH, filename_path)
-    data.to_csv(path, sep=';', index=False)
-    location = "/download/{}".format(urlquote(path))
+    # print('write the result on disk first. columns: ', result.columns)
+    print('write results to ', path)
+    result.to_csv(path, sep=';', index=False)
+    location = "/download/{}".format(urlquote(filename_path))
     return html.A("Download the result data in CSV format", href=location)
 
 
@@ -354,8 +358,6 @@ def data_listed_elements(metrics_data, coverage_data, project_name):
 
     nr_columns = list(data_combined.columns)
     nr_columns.remove('Method')
-
-    print(nr_columns)
 
     return [
         html.P("Tree map visualisation of the methods and the table with all the data"),
@@ -664,10 +666,13 @@ def update_table(page_current, page_size, sort_by, filter, clustered_ds, coverag
 
     page = page_current
     size = page_size
+
     return dff.iloc[page * size: (page + 1) * size].to_dict('records')
 
 
 if __name__ == "__main__":
-    app.run_server(
-        debug=True, port=8051, dev_tools_hot_reload=False, use_reloader=False
-    )
+    debug = False if os.environ["DASH_DEBUG_MODE"] == "False" else True
+    app.run_server(host="0.0.0.0", port=8051, debug=debug, dev_tools_hot_reload=False, use_reloader=False)
+    # app.run_server(
+    #     debug=True, port=8051, dev_tools_hot_reload=False, use_reloader=False
+    # )
