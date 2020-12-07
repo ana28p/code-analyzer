@@ -671,8 +671,8 @@ def update_table(page_current, page_size, sort_by, filter, clustered_ds, coverag
 
 
 if __name__ == "__main__":
-    debug = False if os.environ["DASH_DEBUG_MODE"] == "False" else True
-    app.run_server(host="0.0.0.0", port=8051, debug=debug, dev_tools_hot_reload=False, use_reloader=False)
-    # app.run_server(
-    #     debug=True, port=8051, dev_tools_hot_reload=False, use_reloader=False
-    # )
+    # debug = False if os.environ["DASH_DEBUG_MODE"] == "False" else True
+    # app.run_server(host="0.0.0.0", port=8051, debug=debug, dev_tools_hot_reload=False, use_reloader=False)
+    app.run_server(
+        debug=True, port=8051, dev_tools_hot_reload=False, use_reloader=False
+    )
