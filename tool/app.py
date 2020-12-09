@@ -11,6 +11,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 
+import flask
 from flask import send_file
 
 import numpy as np
@@ -49,6 +50,10 @@ The clustering is based on the selected variables. The computing and rendering o
 
 @server.route("/download/<path:path>")
 def download(path):
+    value = flask.request.args.get('value')
+    print('firstly write results to ', path)
+    result = pd.read_json(value)
+    result.to_csv(path, sep=';', index=False)
     return send_file(path, mimetype='text/csv', as_attachment=True)
 
 
@@ -343,14 +348,10 @@ def get_uncoverage_percentage(row):
     return round(percentage, 2)
 
 
-def file_download_link(project_name, result):
+def file_download_link(project_name, result_json):
     """Create a Plotly Dash 'A' element that downloads a file from the app."""
     filename_path = os.path.join("data", project_name, "result.csv")
-    path = os.path.join(APP_PATH, filename_path)
-    # print('write the result on disk first. columns: ', result.columns)
-    print('write results to ', path)
-    result.to_csv(path, sep=';', index=False)
-    location = "/download/{}".format(urlquote(filename_path))
+    location = "/download/{}?value={}".format(urlquote(filename_path), result_json)
     return html.A("Download the result data in CSV format", href=location)
 
 
@@ -369,7 +370,7 @@ def data_listed_elements(metrics_data, coverage_data, project_name):
                      and the color represent their criticality level."""),
         html.Hr(),
         dcc.Graph(figure=get_tree_map_figure(data_combined), config={'scrollZoom': True}, style={'height': '700px'}),
-        html.Div(file_download_link(project_name, data_combined)),
+        html.Div(file_download_link(project_name, data_combined.to_json())),
         dash_table.DataTable(id="info-table",
                              data=data_combined.to_dict(orient='records'),
                              columns=[{'name': i, 'id': i} for i in data_combined.columns],
