@@ -36,8 +36,8 @@ intro_text = """
 
 This app groups the method metrics in 3 sub-groups based on the selected metrics to create 3 levels of criticality: high, regular and low. 
 There are three ways to do it:
-- threshold-based< by summing the metrics and split them based on percentile thresholds: >90% of the methods are grouped as high, 70-90% as regular, and <70% as low
-- K-means< clustering algorithm groups the methods in 3 clusters; the classification in the 3 levels of criticality
+- threshold-based by summing the metrics and split them based on percentile thresholds: >90% of the methods are grouped as high, 70-90% as regular, and <70% as low
+- K-means clustering algorithm groups the methods in 3 clusters; the classification in the 3 levels of criticality
  is based on total mean value of the metrics within a cluster
 - Expectation-Maximisation (EM) clustering algorithm groups the method in 3 clusters; the classification in the 3 levels of criticality
  is based on total mean value of the metrics within a cluster
