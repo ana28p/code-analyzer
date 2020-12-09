@@ -27,17 +27,19 @@ app.config.suppress_callback_exceptions = True
 
 # Projects:
 TAX_COMPARE = 'tax-compare'
+TAX_I = 'tax-i'
+SHAREX = 'sharex'
 
 intro_text = """
 **About this app**
 
-This apps groups the method metrics in 3 groups of criticality: high, regular and low. 
-There three ways to do it:
-- threshold-based by summing the metrics and split de groups in >90% as high, 70-90% as regular, and <70% as low
-- K-means clustering algorithm groups the method in 3 clusters; the classification in the 3 levels of criticality
- is based on total mean value of the values from a cluster
-- Expectation-Maximisation (EM) clustering algorithm groups the method in 3 clusters; the classification in the 3 levels
- of criticality is based on total mean value of the values from a cluster
+This app groups the method metrics in 3 sub-groups based on the selected metrics to create 3 levels of criticality: high, regular and low. 
+There are three ways to do it:
+- threshold-based< by summing the metrics and split them based on percentile thresholds: >90% of the methods are grouped as high, 70-90% as regular, and <70% as low
+- K-means< clustering algorithm groups the methods in 3 clusters; the classification in the 3 levels of criticality
+ is based on total mean value of the metrics within a cluster
+- Expectation-Maximisation (EM) clustering algorithm groups the method in 3 clusters; the classification in the 3 levels of criticality
+ is based on total mean value of the metrics within a cluster
  
 Select at least one variable, then click on the type of clustering you want to perform. 
 The clustering is based on the selected variables. The computing and rendering of the visualisations might take a few seconds.
@@ -47,9 +49,6 @@ The clustering is based on the selected variables. The computing and rendering o
 
 @server.route("/download/<path:path>")
 def download(path):
-    print('download', path)
-    # if '/app/app/' in path:
-    #     path = path.replace('/app/app/', '')
     return send_file(path, mimetype='text/csv', as_attachment=True)
 
 
@@ -61,10 +60,14 @@ app.layout = html.Div([
 ])
 
 index_page = html.Div([
-    html.H4("Wrong path"),
+    html.H4("Project not specified or non-existent"),
     html.Hr(),
     html.P("Available projects to visualise:"),
-    dcc.Link('TAX-Compare', href='/tax-compare'),
+    html.Div([
+        html.Li(dcc.Link('TAX-Compare', href='/tax-compare')),
+        html.Li(dcc.Link('TAX-I', href='/tax-i')),
+        html.Li(dcc.Link('ShareX', href='/sharex')),
+    ])
 ])
 
 myapp_layout = html.Div(
@@ -352,9 +355,10 @@ def file_download_link(project_name, result):
 
 
 def data_listed_elements(metrics_data, coverage_data, project_name):
-    data_combined = pd.merge(metrics_data, coverage_data, on='Method', how='left')
-
-    data_combined['UncoveragePercentage'] = data_combined.apply(lambda row: get_uncoverage_percentage(row), axis=1)
+    data_combined = metrics_data
+    if coverage_data is not None:
+        data_combined = pd.merge(metrics_data, coverage_data, on='Method', how='left')
+        data_combined['UncoveragePercentage'] = data_combined.apply(lambda row: get_uncoverage_percentage(row), axis=1)
 
     nr_columns = list(data_combined.columns)
     nr_columns.remove('Method')
@@ -445,7 +449,7 @@ def update_project(pathname):
     [Input('project-name', 'data')])
 def update_layout(project):
     print("try to switch to layout: ", project)
-    if project == TAX_COMPARE:
+    if project == TAX_COMPARE or project == TAX_I or project == SHAREX:
         return myapp_layout
     else:
         return index_page
@@ -481,9 +485,9 @@ def update_metrics_data_store(project):
     Output('coverage-data-store', 'data'),
     [Input('project-name', 'data')])
 def update_test_coverage_data_store(project):
-    if project:
-        path = os.path.join(APP_PATH, os.path.join("data", project + "/test_coverage.csv"))
-        return pd.read_csv(path, sep=';').to_json()
+    test_cov_file_path = os.path.join(APP_PATH, os.path.join("data", project + "/test_coverage.csv"))
+    if project and os.path.exists(test_cov_file_path):
+        return pd.read_csv(test_cov_file_path, sep=';').to_json()
     else:
         return None
 
@@ -583,7 +587,9 @@ def update_cluster_result(clustered_ds, data_metrics_options):
 def update_data_listed(clustered_ds, coverage_ds, pj_name):
     if clustered_ds:
         df = pd.read_json(clustered_ds)
-        coverage_data = pd.read_json(coverage_ds)
+        coverage_data = None
+        if coverage_ds:
+            coverage_data = pd.read_json(coverage_ds)
         return data_listed_elements(df, coverage_data, pj_name)
     return get_empty_div()
 
@@ -637,9 +643,11 @@ def split_filter_part(filter_part):
 def update_table(page_current, page_size, sort_by, filter, clustered_ds, coverage_ds):
     filtering_expressions = filter.split(' && ')
     clustered_data = pd.read_json(clustered_ds)
-    coverage_data = pd.read_json(coverage_ds)
-    dff = pd.merge(clustered_data, coverage_data, on='Method', how='left')
-    dff['UncoveragePercentage'] = dff.apply(lambda row: get_uncoverage_percentage(row), axis=1)
+    dff = clustered_data
+    if coverage_ds:
+        coverage_data = pd.read_json(coverage_ds)
+        dff = pd.merge(clustered_data, coverage_data, on='Method', how='left')
+        dff['UncoveragePercentage'] = dff.apply(lambda row: get_uncoverage_percentage(row), axis=1)
 
     for filter_part in filtering_expressions:
         col_name, operator, filter_value = split_filter_part(filter_part)
@@ -671,8 +679,8 @@ def update_table(page_current, page_size, sort_by, filter, clustered_ds, coverag
 
 
 if __name__ == "__main__":
-    # debug = False if os.environ["DASH_DEBUG_MODE"] == "False" else True
-    # app.run_server(host="0.0.0.0", port=8051, debug=debug, dev_tools_hot_reload=False, use_reloader=False)
-    app.run_server(
-        debug=True, port=8051, dev_tools_hot_reload=False, use_reloader=False
-    )
+    debug = False if os.environ["DASH_DEBUG_MODE"] == "False" else True
+    app.run_server(host="0.0.0.0", port=8050, debug=debug)
+    # app.run_server(
+    #     debug=True, port=8051, dev_tools_hot_reload=False, use_reloader=False
+    # )
