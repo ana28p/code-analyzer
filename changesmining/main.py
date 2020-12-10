@@ -43,15 +43,15 @@ def update_modified_file(filename: str, old_full_path: str, new_full_path: str) 
 def search_matches_for_method(changed_file: ChangedFile, method_long_name: str):
     matches = [m for m in changed_file.methods
                if (m.class_path + m.name).replace(' ', '') == method_long_name.replace(' ', '')]
-    # if len(matches) == 0:
-    #     sig, _ = split_method_long_name(method_long_name)
-    #     # can be the case that two different commits change the method signature in different ways
-    #     # try to search for a method with the same name
-    #     matches = [m for m in changed_file.methods if m.name[:m.name.rfind('(')] == sig[:sig.rfind('(')]]
-    #     # if there are more matches with the same name;
-    #     # return an empty list such that the method will be added as new
-    #     if len(matches) > 1:
-    #         return []
+    if len(matches) == 0:
+        sig, _ = split_method_long_name(method_long_name)
+        # can be the case that two different commits change the method signature in different ways (e.g. merge)
+        # try to search for a method with the same name
+        matches = [m for m in changed_file.methods if m.name[:m.name.rfind('(')] == sig[:sig.rfind('(')]]
+        # if there are more matches with the same name;
+        # return an empty list such that the method will be added as new
+        if len(matches) > 1:
+            return []
 
     return matches
 
@@ -63,6 +63,7 @@ def get_matches_for_method(changed_file: ChangedFile, commit_hash: str, method_l
         print('The method {} has too many matches {} for file {} in commit {}'
               .format(method_long_name, [(m.class_path + m.name) for m in matches],
                       changed_file.full_path, commit_hash))
+
     return matches
 
 
@@ -252,6 +253,8 @@ def get_dict_content_of_methods(source_code: str, methods: List[Method]):
     methods_dict = {}
     for m in methods:
         content = source_code.splitlines()[m.start_line: m.end_line]
+        sig, _ = split_method_long_name(m.long_name)
+        content.insert(0, sig)  # add also the signature of the method (name + parameters)
         methods_dict[m.long_name] = content
     return methods_dict
 
@@ -319,7 +322,16 @@ def check_for_rename(modification: Modification, c_file: ChangedFile, methods: M
                 # replace b_cls_path with cls_path
                 update_methods_with_new_class(c_file, before, b_cls_path, cls_path)
                 renamed[b_cls_path] = cls_path
+                break
     return renamed
+
+
+def check_current_methods(modification, c_file, commit):
+    added_methods = [(m.class_path + m.name) for m in c_file.methods]
+    for c_m in modification.methods:
+        if c_m.long_name not in added_methods:
+            print('{} was not present; commit {}'.format(c_m.long_name, commit.commit_hash))
+            create_method_using_str(c_file, c_m.long_name, commit)
 
 
 def handle_new_updated(modification: Modification, m_new, m_updated,
@@ -344,11 +356,13 @@ def handle_new_updated(modification: Modification, m_new, m_updated,
         d_current.pop(current_m_name)
 
     # add or update the rest
-    rest = [m for m in (m_new + m_updated) if m.long_name in list(d_current.keys())]
-    update_or_create_methods(modification, c_file, rest, commit)
+    rest_new = [m for m in m_new if m.long_name in list(d_current.keys())]
+    add_methods(c_file, rest_new, commit)
+    rest_updated = [m for m in m_updated if m.long_name in list(d_current.keys())]
+    update_or_create_methods(modification, c_file, rest_updated, commit)
 
 
-def handle_new_obsolete(renamed: dict, modification: Modification, m_new, m_obsolete,
+def handle_new_obsolete(modification: Modification, m_new, m_obsolete,
                         c_file: ChangedFile, commit: Commit):
     d_obsolete = get_dict_content_of_methods(modification.source_code_before, m_obsolete)
 
@@ -369,7 +383,7 @@ def handle_new_obsolete(renamed: dict, modification: Modification, m_new, m_obso
 
     # add or update the rest
     rest = [m for m in m_new if m.long_name in list(d_new.keys())]
-    update_or_create_methods(modification, c_file, rest, commit)
+    add_methods(c_file, rest, commit)
 
     # remove the rest of obsolete
     remove_methods(c_file, list(d_obsolete.keys()), commit)
@@ -401,8 +415,10 @@ def handle_new_obsolete_updated(modification: Modification, m_new: List[Method],
         d_current.pop(current_m_name)
 
     # add or update the rest
-    rest = [m for m in (m_new + m_updated) if m.long_name in list(d_current.keys())]
-    update_or_create_methods(modification, c_file, rest, commit)
+    rest_new = [m for m in m_new if m.long_name in list(d_current.keys())]
+    add_methods(c_file, rest_new, commit)
+    rest_updated = [m for m in m_updated if m.long_name in list(d_current.keys())]
+    update_or_create_methods(modification, c_file, rest_updated, commit)
 
     # remove the rest of obsolete
     remove_methods(c_file, list(d_before.keys()), commit)
@@ -438,13 +454,14 @@ def check_and_update_methods2(modification: Modification, c_file: ChangedFile, c
     elif methods.exist_new() and methods.exist_obsolete() and not methods.exist_updated():
         # get obsolete and do similarity check between these and new
         # maybe the content of a new method is actually an obsolete method; rename
-        # check also for possible rename of the namespace/class
-        handle_new_obsolete(renamed, modification, methods.new, methods.obsolete, c_file, commit)
+        handle_new_obsolete(modification, methods.new, methods.obsolete, c_file, commit)
 
     else:  # obsolete & new & updated
         # get obsolete and updated before and check between those and new + current updated
-        # check also for possible rename of the namespace/class
         handle_new_obsolete_updated(modification, methods.new, methods.obsolete, methods.updated, c_file, commit)
+
+    # check if the file has all the current methods; add those missing
+    check_current_methods(modification, c_file, commit)
 
 
 def check_and_update_methods(c_file: ChangedFile, commit: Commit, modification: Modification):
@@ -504,12 +521,16 @@ def reset_changed_methods_and_save_name():
             m.commits.clear()
 
 
-def mine(repository: str, from_tag: str = None, to_tag: str = None):
+def mine(repository: str, from_tag: str = None, to_tag: str = None,
+         from_com: str = None, to_com: str = None):
     c_count = 0
     for c in RepositoryMining(repository,
                               # only_modifications_with_file_types=['.cs'],
+                              # only_no_merge=True,
                               from_tag=from_tag,
                               to_tag=to_tag,
+                              from_commit=from_com,
+                              to_commit=to_com
                               ).traverse_commits():
 
         commit = Commit(c.committer_date, c.committer, c.msg, c.hash)
@@ -526,8 +547,9 @@ def mine(repository: str, from_tag: str = None, to_tag: str = None):
                 add_methods(c_file, mod.methods, commit)
             elif mod.change_type == ModificationType.DELETE:
                 # delete file (and its methods)
-                removed = files.pop(mod.old_path)
-                add_to_trash(removed.methods, commit)
+                if mod.old_path in files:
+                    removed = files.pop(mod.old_path)
+                    add_to_trash(removed.methods, commit)
             else:
                 if mod.change_type == ModificationType.RENAME:
                     c_file = update_modified_file(mod.filename, mod.old_path, mod.new_path)
@@ -557,43 +579,57 @@ def mine_and_save_output(repo: str, save_location: str):
     print("--- %s seconds ---" % (time.time() - start_time))
 
 
-def mine_before_and_after_tag(repo: str, tag: str, save_location: str):
-    print('========================== mine to tag ==========================')
+def mine_before_and_after_tag(repo: str, save_location: str, tag: str = None, commit_hash: str = None):
+    print('========================== mine to tag/commit ==========================')
     start_time = time.time()
 
-    mine(repo, to_tag=tag)
-    write_to_csv(files, save_location + '/commits-to-' + tag + '.csv')
+    file_ext = tag if tag is not None else commit_hash[:5]
+
+    if tag is not None:
+        mine(repo, to_tag=tag)
+    elif commit_hash is not None:
+        mine(repo, to_com=commit_hash)
+    write_to_csv(files, save_location + '/commits-to-' + file_ext + '.csv')
 
     print("--- %s seconds ---" % (time.time() - start_time))
 
     # remove the commits from the methods and save their current long name in the previous_name field
     reset_changed_methods_and_save_name()
 
-    write_to_cvs_trash(commit_deleted_methods, save_location + '/removed-to-' + tag + '.csv')
+    write_to_cvs_trash(commit_deleted_methods, save_location + '/removed-to-' + file_ext + '.csv')
     # clear the list of removed
     commit_deleted_methods.clear()
 
-    print('========================== mine from tag ==========================')
+    print('========================== mine from tag/commit ==========================')
     start_time = time.time()
 
-    mine(repo, from_tag=tag)
-    write_to_csv(files, save_location + '/commits-from-' + tag + '.csv', include_prev_name=True)
+    if tag is not None:
+        mine(repo, from_tag=tag)
+    elif commit_hash is not None:
+        mine(repo, from_com=commit_hash)
+    write_to_csv(files, save_location + '/commits-from-' + file_ext + '.csv', include_prev_name=True)
 
     print("--- %s seconds ---" % (time.time() - start_time))
 
-    write_to_cvs_trash(commit_deleted_methods, save_location + '/removed-from-' + tag + '.csv')
+    write_to_cvs_trash(commit_deleted_methods, save_location + '/removed-from-' + file_ext + '.csv')
 
 
 if __name__ == '__main__':
 
-    use_repo = 'C:/Users/aprodea/work/deloitte-tax-compare/.git'
-    save_to_location = 'C:/Users/aprodea/work/metrics-tax-compare/commits/last'
+    # use_repo = 'C:/Users/aprodea/work/deloitte-tax-compare/.git'
+    # use_tag = '1.1.1_june_2017'
+    # save_to_location = 'C:/Users/aprodea/work/metrics-tax-compare/commits/last'
+    # save_to_location = 'C:/Users/aprodea/work/metrics-tax-compare/commits/tag-1.1.1'
 
-    # repo = 'C:/Users/aprodea/work/experiment-projects/sharex/ShareX/.git'
-    # tag = '1.1.1_june_2017'
+    use_repo = 'C:/Users/aprodea/work/deloitte-tax-i/Web/.git'
+    # save_to_location = 'C:/Users/aprodea/work/deloitte-tax-i/metrics/commits/last'
+    save_to_location = 'C:/Users/aprodea/work/deloitte-tax-i/metrics/commits/commit_23-01-20'
+    com = '92ad42d11f3688006d573ce9fb0f763ef3a2398f'
+
     # save_location = 'C:/Users/aprodea/work/metrics-tax-compare/commits/new'
 
     # use_repo = 'https://github.com/ShareX/ShareX.git'
+    # use_repo = 'C:/Users/aprodea/work/experiment-projects/sharex/ShareX/.git'
     # use_tag = 'v12.0.0'
     # save_to_location = 'C:/Users/aprodea/work/experiment-projects/sharex/commits/v12.0.0'
 
@@ -604,12 +640,14 @@ if __name__ == '__main__':
 
     # use_repo = 'https://github.com/ana28p/testing-with-csharp.git'
     # use_repo = 'C:/Users/aprodea/work/testing/DummySolution/.git'
-    # save_to_location = 'C:/Users/aprodea/work/testing'
+    # save_to_location = 'C:/Users/aprodea/work/testing/last'
 
-    # mine_before_and_after_tag(repo=use_repo,
-    #                           tag=use_tag,
-    #                           save_location=save_to_location)
+    mine_before_and_after_tag(repo=use_repo,
+                              save_location=save_to_location,
+                              # tag=use_tag,
+                              commit_hash=com
+                              )
 
-    mine_and_save_output(repo=use_repo, save_location=save_to_location)
+    # mine_and_save_output(repo=use_repo, save_location=save_to_location)
 
     # print_actual_files(files)
