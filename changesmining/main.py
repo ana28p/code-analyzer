@@ -35,7 +35,6 @@ def update_modified_file(filename: str, old_full_path: str, new_full_path: str) 
     else:
         current_c_file.filename = filename
         current_c_file.full_path = new_full_path
-        current_c_file.old_paths.append(old_full_path)
         files[new_full_path] = current_c_file
         return current_c_file
 

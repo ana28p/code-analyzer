@@ -4,18 +4,13 @@ class ChangedFile:
     def __init__(self, filename, full_path):
         self.filename = filename
         self.full_path = full_path
-        self.old_paths = []
         self.methods = []
-        self.classes = set()
 
     def set_filename(self, filename):
         self.filename = filename
 
     def set_full_path(self, full_path):
         self.full_path = full_path
-
-    def add_old_full_path(self, old_full_path):
-        self.old_paths.append(old_full_path)
 
 
 class ChangedMethod:
