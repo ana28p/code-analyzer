@@ -129,7 +129,7 @@ def update_table(contents, filename):
             html.H5(filename),
             dash_table.DataTable(
                 data=df.to_dict('rows'),
-                columns=[{'name': i, 'id': i} for i in df.columns]
+                columns=[{'name': i, 'id': i} for i in df.columns],
             ),
             html.Hr(),
             html.Div('Raw Content'),

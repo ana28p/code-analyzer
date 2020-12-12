@@ -9,8 +9,13 @@ import logging
 import time
 
 
-metrics_file = "C:/Users/aprodea/work/metrics-tax-compare/research_v111/merged_filledna.csv"
-save_to_location = "C:/Users/aprodea/work/metrics-tax-compare/classification/1_"
+# metrics_file = "C:/Users/aprodea/work/deloitte-tax-i/analysis/last/merged/merged_filledna.csv"
+# save_to_location = "C:/Users/aprodea/work/deloitte-tax-i/analysis/last/classification/"
+
+metrics_file = "C:/Users/aprodea/work/metrics-tax-compare/analysis/tag-1.1.1/merged/merged_filledna.csv"
+save_to_location = "C:/Users/aprodea/work/metrics-tax-compare/analysis/tag-1.1.1/classification/1_"
+# metrics_file = "C:/Users/aprodea/work/metrics-tax-compare/analysis/last/merged/merged_filledna.csv"
+# save_to_location = "C:/Users/aprodea/work/metrics-tax-compare/analysis/last/classification/"
 
 # metrics_file = "C:/Users/aprodea/work/experiment-projects/sharex/analysis/v12/merged/merged_filledna.csv"
 # save_to_location = "C:/Users/aprodea/work/experiment-projects/sharex/classification/1_"
@@ -165,7 +170,8 @@ def test_determinism_k_means(data, times, rand_state):
     for i in range(times):
         result_1 = k_means_clustering(data, rand_state)
         result_2 = k_means_clustering(data, rand_state)
-        adj_rand_idx.append(adjusted_rand_score(result_1['CLevel'].tolist(), result_2['CLevel'].tolist()))
+        ars = adjusted_rand_score(result_1['CLevel'].tolist(), result_2['CLevel'].tolist())
+        adj_rand_idx.append(ars)
     return min(adj_rand_idx), max(adj_rand_idx), statistics.mean(adj_rand_idx)
 
 
@@ -251,13 +257,17 @@ def classification_report(real, predicted):
 
 
 def classification_report_for_all():
-    real_labels_file = "C:/Users/aprodea/work/metrics-tax-compare/classification/methods_labelled.csv"
+    # real_labels_file = "C:/Users/aprodea/work/metrics-tax-compare/analysis/classification/methods_labelled.csv"
+    real_labels_file = "C:/Users/aprodea/work/metrics-tax-compare/analysis/labelled_data_ext.csv"
+    # real_labels_file = "C:/Users/aprodea/work/deloitte-tax-i/analysis/labelled_data_ext.csv"
     real_labels_data = pd.read_csv(real_labels_file, sep=';')
 
-    metrics_labelled_file = save_to_location + "all_labels.csv"
+    # metrics_labelled_file = save_to_location + "all_labels.csv"
+    metrics_labelled_file = "C:/Users/aprodea/work/metrics-tax-compare/analysis/last/classification/all_labels.csv"
+    # metrics_labelled_file = "C:/Users/aprodea/work/deloitte-tax-i/analysis/last/classification/all_labels.csv"
     metrics_labelled_data = pd.read_csv(metrics_labelled_file, sep=';')
 
-    data_combined = pd.merge(left=real_labels_data,
+    data_combined = pd.merge(left=real_labels_data[['Method', 'CLevel']],
                              right=metrics_labelled_data[['Method', 'CLevel_threshold', 'CLevel_k_means', 'CLevel_em']],
                              on='Method', how='left')
 
@@ -268,8 +278,8 @@ def classification_report_for_all():
 
 
 if __name__ == '__main__':
-    # analysis(rand_state=42)
-    classification_report_for_all()
+    analysis(rand_state=42)
+    # classification_report_for_all()
     # compare_results()
     # calculate_determinism()
 
