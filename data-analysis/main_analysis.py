@@ -11,16 +11,19 @@ import time
 
 # metrics_file = "C:/Users/aprodea/work/deloitte-tax-i/analysis/last/merged/merged_filledna.csv"
 # save_to_location = "C:/Users/aprodea/work/deloitte-tax-i/analysis/last/classification/"
+# metrics_file = "C:/Users/aprodea/work/deloitte-tax-i/analysis/commit_23-01-20/merged/merged_filledna.csv"
+# save_to_location = "C:/Users/aprodea/work/deloitte-tax-i/analysis/commit_23-01-20/classification/2_"
 
-metrics_file = "C:/Users/aprodea/work/metrics-tax-compare/analysis/tag-1.1.1/merged/merged_filledna.csv"
-save_to_location = "C:/Users/aprodea/work/metrics-tax-compare/analysis/tag-1.1.1/classification/1_"
+# metrics_file = "C:/Users/aprodea/work/metrics-tax-compare/analysis/tag-1.1.1/merged/merged_filledna.csv"
+# save_to_location = "C:/Users/aprodea/work/metrics-tax-compare/analysis/tag-1.1.1/classification/2_"
 # metrics_file = "C:/Users/aprodea/work/metrics-tax-compare/analysis/last/merged/merged_filledna.csv"
 # save_to_location = "C:/Users/aprodea/work/metrics-tax-compare/analysis/last/classification/"
 
-# metrics_file = "C:/Users/aprodea/work/experiment-projects/sharex/analysis/v12/merged/merged_filledna.csv"
-# save_to_location = "C:/Users/aprodea/work/experiment-projects/sharex/classification/1_"
+metrics_file = "C:/Users/aprodea/work/experiment-projects/sharex/analysis/v12/merged/merged_filledna.csv"
+save_to_location = "C:/Users/aprodea/work/experiment-projects/sharex/analysis/v12/classification/2_"
 
-metrics_list = ['LOC', 'CC', 'NP', 'NV', 'NEST', 'Ca', 'Ce', 'NChg', 'NCall']
+# metrics_list = ['LOC', 'CC', 'NP', 'NV', 'NEST', 'Ca', 'Ce', 'NChg', 'NCall']
+metrics_list = ['LOC',  'NP', 'Ca', 'Ce', 'NChg']
 
 
 def get_data():
@@ -223,7 +226,9 @@ def compare_results():
             pr = compute_metrics.precision_score(metrics_labelled_data[l1].tolist(), metrics_labelled_data[l2].tolist(),
                                                  labels=['high', 'regular', 'low'], average=None)
             acc = compute_metrics.accuracy_score(metrics_labelled_data[l1].tolist(), metrics_labelled_data[l2].tolist())
-            print('{}  to  {}  ari: {}  precision: {}  accuracy: {}'.format(l1, l2, ari, pr, acc))
+            recall = compute_metrics.recall_score(metrics_labelled_data[l1].tolist(), metrics_labelled_data[l2].tolist(),
+                                                 labels=['high', 'regular', 'low'], average=None)
+            print('{}  to  {}  ari: {}  precision: {}, recall: {} accuracy: {}'.format(l1, l2, ari, pr, recall, acc))
 
 
 def print_cm(cm, labels):
@@ -280,7 +285,7 @@ def classification_report_for_all():
 if __name__ == '__main__':
     analysis(rand_state=42)
     # classification_report_for_all()
-    # compare_results()
+    compare_results()
     # calculate_determinism()
 
 

@@ -1,7 +1,7 @@
 from pathlib import Path
 from difflib import SequenceMatcher
 
-from utils.change import ChangedFile, ChangedMethod, Commit, Modification, ModificationType, MethodsSplit
+from utils.change import ChangedFile, ChangedMethod, Commit, MethodsSplit
 
 from pydriller import RepositoryMining
 
@@ -66,6 +66,19 @@ def split_method_long_name(long_name):
     return long_name[start_of_name:], long_name[:start_of_name]
 
 
+# repo = 'C:/Users/aprodea/work/deloitte-tax-compare/.git'
+# gen = RepositoryMining(repo,
+#                        # only_modifications_with_file_types=['.cs'],
+#                        from_tag='1.4.0_september_2017',
+#                        ).traverse_commits()
+# commits = list(gen)
+#
+# last_commit = commits[-1]
+# print('size: ', len(commits), ' last commit {} {} {}'.format(last_commit.hash, last_commit.author_date, last_commit.msg))
+# first_commit = commits[0]
+# print('first commit {} {} {}'.format(first_commit.hash, first_commit.author_date, first_commit.msg))
+
+
 # method_signature, class_path = split_method_long_name("test::to::see::split ( st, ft)")
 # print(method_signature, '----', class_path)
 # update_files()
@@ -80,8 +93,9 @@ def split_method_long_name(long_name):
 # 468e305ac3c8bc10bde80d0b1357fa7f78b03410 - commit for method rename
 # d29780c984d3a034ee2e3e4ad82aad2de5153782 - commit for the parameter types change
 # for c in RepositoryMining('C:/Users/aprodea/work/deloitte-tax-compare/.git',
-for c in RepositoryMining('https://github.com/ana28p/testing-with-csharp.git',
-                          single='5184eea9a2078b43db04c9c8f2768ac5713506f4').traverse_commits():
+# for c in RepositoryMining('https://github.com/ana28p/testing-with-csharp.git',
+for c in RepositoryMining('https://github.com/ShareX/ShareX.git',
+                          single='b184fff01b675c593442c038cc9591c932034b88').traverse_commits():
     print('----------------------------------')
     print(c.committer.name, c.committer_date, '|| msg: ', c.msg, c.hash)
     for m in c.modifications:
