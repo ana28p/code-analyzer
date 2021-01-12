@@ -114,6 +114,8 @@ def process_steps(data, list_of_metric_types, use_metric_types,
 
     logging.info('==================================================')
 
+    return data_complete
+
 
 def start_process(data_location, output_location, save_plots, use_metric_types, real_labels_file=None):
     metrics_file = data_location + "merged.csv"
@@ -129,29 +131,73 @@ def start_process(data_location, output_location, save_plots, use_metric_types, 
         if not os.path.exists(save_to_location):
             os.makedirs(save_to_location)
 
-    logging.basicConfig(filename=save_to_location + 'info.log', level=logging.INFO,
-                        format='%(asctime)s %(message)s', datefmt='%d/%m/%Y %H:%M:%S')
-    logging.info('Started')
     logging.info('Reading metrics from file ' + metrics_file)
 
     data = pd.read_csv(metrics_file, sep=';')
 
-    process_steps(data,
-                  list_of_metric_types,
-                  use_metric_types,
-                  real_labels_file,
-                  changed_lines_file,
-                  test_coverage_file,
-                  save_to_location,
-                  save_plots)
+    data_complete = process_steps(data,
+                                  list_of_metric_types,
+                                  use_metric_types,
+                                  real_labels_file,
+                                  changed_lines_file,
+                                  test_coverage_file,
+                                  save_to_location,
+                                  save_plots)
+
+    return data_complete
+
+
+def execute_process_for(resources_location, output_location, save_plots, real_labels_filename=None):
+    logging.info('Started')
+    data_classified_all = start_process(resources_location,
+                                        output_location + "classification_all/",
+                                        save_plots,
+                                        ['LOC', 'CC', 'NP', 'NV', 'NEST', 'Ca', 'Ce', 'NChg', 'NCall'],
+                                        real_labels_filename)
+    data_classified_reduced = start_process(resources_location,
+                                            output_location + "classification_no_call/",
+                                            save_plots,
+                                            ['LOC', 'NP', 'Ca', 'Ce', 'NChg'],
+                                            real_labels_filename)
+    data_classified_no_call = start_process(resources_location,
+                                            output_location + "classification_reduced/",
+                                            save_plots,
+                                            ['LOC', 'CC', 'NP', 'NV', 'NEST', 'Ca', 'Ce', 'NChg'],
+                                            real_labels_filename)
+
+    logging.info('Comparison result between pair of classification between all and reduced')
+    labels = [THRESHOLD_LBL, KMEANS_LBL, EM_LBL]
+    for lbl in labels:
+        pr, recall, ari, acc = compare_pair(data_classified_all[lbl].tolist(), data_classified_reduced[lbl].tolist())
+        logging.info('{}  to  {}  precision: {}, recall: {},  ari: {}, accuracy: {}'.format(lbl, lbl, pr, recall, ari, acc))
+    logging.info('Comparison result between pair of classification between all and no call')
+    for lbl in labels:
+        pr, recall, ari, acc = compare_pair(data_classified_all[lbl].tolist(), data_classified_no_call[lbl].tolist())
+        logging.info('{}  to  {}  precision: {}, recall: {},  ari: {}, accuracy: {}'.format(lbl, lbl, pr, recall, ari, acc))
 
     logging.info('Finished')
 
 
 if __name__ == "__main__":
+    logging.basicConfig(filename='C:/Users/Anamaria/Documents/master/final_project/experiments/info.log',
+                        level=logging.INFO, format='%(asctime)s %(message)s', datefmt='%d/%m/%Y %H:%M:%S')
+
+    logging.info(">>>>>>>>>>>>>>>>>>> Tax-c <<<<<<<<<<<<<<<<<<<")
     pj = "C:/Users/Anamaria/Documents/master/final_project/experiments/tax-c/"
-    start_process(pj + "analysis/v111/merged/",
-                  pj + "analysis/v111/classification_all/",
-                  True,
-                  ['LOC', 'CC', 'NP', 'NV', 'NEST', 'Ca', 'Ce', 'NChg', 'NCall'],
-                  "methods_labelled.csv")
+    execute_process_for(pj + "analysis/v111/merged/",
+                        pj + "analysis/v111/",
+                        True,
+                        "methods_labelled.csv")
+
+    logging.info(">>>>>>>>>>>>>>>>>>> Tax-i <<<<<<<<<<<<<<<<<<<")
+    pj = "C:/Users/Anamaria/Documents/master/final_project/experiments/tax-i/"
+    execute_process_for(pj + "analysis/jan2020/merged/",
+                        pj + "analysis/jan2020/",
+                        True,
+                        "methods_labelled.csv")
+
+    logging.info(">>>>>>>>>>>>>>>>>>> Sharex <<<<<<<<<<<<<<<<<<<")
+    pj = "C:/Users/Anamaria/Documents/master/final_project/experiments/sharex/"
+    execute_process_for(pj + "analysis/v12/merged/",
+                        pj + "analysis/v12/",
+                        True)

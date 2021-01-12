@@ -47,8 +47,8 @@ def label_data(data, using_variables, cluster_classification, label):
     return data.drop(['clust'], axis=1)
 
 
-def print_cm(cm, labels):
-    """pretty print for confusion matrixes"""
+def report_cm(cm, labels):
+    """create pretty print for confusion matrix"""
     res = []
     column_width = 10
     # Print header
@@ -56,7 +56,6 @@ def print_cm(cm, labels):
     for label in labels:
         header += "%{0}s".format(column_width) % label
     res.append(header)
-    print(header)
     # Print rows
     for i, label1 in enumerate(labels):
         row_text = "%{0}s".format(column_width) % label1
@@ -64,7 +63,6 @@ def print_cm(cm, labels):
             cell = "%{0}.1f".format(column_width) % cm[i, j]
             row_text += cell
         res.append(row_text)
-        print(row_text)
     return res
 
 
@@ -75,11 +73,7 @@ def classification_report(real, predicted):
     acc = compute_metrics.accuracy_score(y_true=real, y_pred=predicted)
     report = compute_metrics.classification_report(y_true=real, y_pred=predicted, labels=labels)
     conf_matrix = compute_metrics.confusion_matrix(y_true=real, y_pred=predicted, labels=labels)
-    print('ARI ', ari)
-    print('Accuracy ', acc)
-    print(report)
-    print('Confusion matrix')
-    cm_res = print_cm(conf_matrix, labels)
+    cm_res = report_cm(conf_matrix, labels)
     res.append('ARI ' + str(ari))
     res.append('Accuracy ' + str(acc))
     res.append(report)
@@ -117,3 +111,4 @@ def plot_first_two_pca(data, projected_data_result, list_labels, list_titles, sa
         ax[i].title.set_fontsize(16)
 
     plt.savefig(save_location + 'pca.pdf', bbox_inches='tight', pad_inches=0)
+    plt.close(fig)

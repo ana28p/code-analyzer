@@ -15,17 +15,41 @@ from transformscripts import change_method_name_metrics, ctor_to_class_name, cha
 
 # Resource path locations
 
-PROJECT_LOCATION = "C:/Users/Anamaria/Documents/master/final_project/experiments/tax-c/"
+# PROJECT_LOCATION = "C:/Users/Anamaria/Documents/master/final_project/experiments/tax-c/"
+#
+# SOURCE_CODE_METRICS_FILE = PROJECT_LOCATION + "init_reports/ndepend_v111.csv"
+# REPO_MINING_FILE = PROJECT_LOCATION + "init_reports/commits-to-1.1.1_june_2017.csv"
+# USAGE_DATA_FOLDER = PROJECT_LOCATION + "init_reports/usage"
+#
+# REPO_MINING_FILE_FOR_CHGLINES = PROJECT_LOCATION + "init_reports/commits-from-1.1.1_june_2017.csv"
+#
+# TEST_COVERAGE_FILE = PROJECT_LOCATION + "init_reports/test_coverage_v111.xml"
+#
+# SAVE_TO_FOLDER = PROJECT_LOCATION + "analysis/v111/merged/"
 
-SOURCE_CODE_METRICS_FILE = PROJECT_LOCATION + "init_reports/ndepend_v111.csv"
-REPO_MINING_FILE = PROJECT_LOCATION + "init_reports/commits-to-1.1.1_june_2017.csv"
+# PROJECT_LOCATION = "C:/Users/Anamaria/Documents/master/final_project/experiments/tax-i/"
+#
+# SOURCE_CODE_METRICS_FILE = PROJECT_LOCATION + "init_reports/ndepend_23_jan.csv"
+# REPO_MINING_FILE = PROJECT_LOCATION + "init_reports/commits-to-92ad4.csv"
+# USAGE_DATA_FOLDER = PROJECT_LOCATION + "init_reports/usage"
+#
+# REPO_MINING_FILE_FOR_CHGLINES = PROJECT_LOCATION + "init_reports/commits-from-92ad4.csv"
+#
+# TEST_COVERAGE_FILE = PROJECT_LOCATION + "init_reports/test_coverage.xml"
+#
+# SAVE_TO_FOLDER = PROJECT_LOCATION + "analysis/jan2020/merged/"
+
+PROJECT_LOCATION = "C:/Users/Anamaria/Documents/master/final_project/experiments/sharex/"
+
+SOURCE_CODE_METRICS_FILE = PROJECT_LOCATION + "init_reports/ndepend_v12.csv"
+REPO_MINING_FILE = PROJECT_LOCATION + "init_reports/commits-to-v12.0.0.csv"
 USAGE_DATA_FOLDER = PROJECT_LOCATION + "init_reports/usage"
 
-REPO_MINING_FILE_FOR_CHGLINES = PROJECT_LOCATION + "init_reports/commits-from-1.1.1_june_2017.csv"
+REPO_MINING_FILE_FOR_CHGLINES = PROJECT_LOCATION + "init_reports/commits-from-v12.0.0.csv"
 
-TEST_COVERAGE_FILE = PROJECT_LOCATION + "init_reports/test_coverage_v111.xml"
+TEST_COVERAGE_FILE = None
 
-SAVE_TO_FOLDER = PROJECT_LOCATION + "analysis/v111/merged/"
+SAVE_TO_FOLDER = PROJECT_LOCATION + "analysis/v12/merged/"
 
 
 # --------- Source code metrics report --------- #

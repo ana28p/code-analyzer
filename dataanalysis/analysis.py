@@ -46,6 +46,7 @@ class Analysis:
 
             plt_scaled_data = create_qq_subplots(self.scaled_data, self.all_metrics)
             plt_scaled_data.savefig(self.output_plots_location + 'qqplots_scaled.pdf', bbox_inches='tight', pad_inches=0)
+            plt.close('all')
 
     def describe_variables(self):
         logging.info("Variables description\n" + self.data[self.all_metrics].describe().to_string())
@@ -112,6 +113,7 @@ class Analysis:
             plt.xlabel("Number of Clusters")
             plt.ylabel("SSE")
             plt.savefig(self.output_plots_location + 'k_means-sse.pdf', bbox_inches='tight', pad_inches=0)
+            plt.close('all')
 
     def em_bic_aic(self):
         n_components = np.arange(1, 11)
@@ -128,6 +130,7 @@ class Analysis:
             plt.xlabel('Number of Clusters')
 
             plt.savefig(self.output_plots_location + 'em_bic-aic.pdf', bbox_inches='tight', pad_inches=0)
+            plt.close('all')
 
     def correlation_changed_lines_and_metrics(self, changed_lines_file):
         chg_lines_data = pd.read_csv(changed_lines_file, sep=';')

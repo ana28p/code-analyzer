@@ -95,6 +95,7 @@ class Clustering(ABC):
         plt.xlabel('')
         plt.ylabel('')
         plt.savefig(self.output_plots_location + self.alg_type + '.pdf', bbox_inches='tight', pad_inches=0)
+        plt.close(fig)
 
 
 class ThresholdClustering(Clustering):
