@@ -17,20 +17,21 @@ pd.set_option('display.width', 1000)
 
 
 class Clustering(ABC):
-    def __init__(self, alg_type, data, all_metrics, use_metrics, output_location):
+    def __init__(self, alg_type, data, all_metrics, use_metrics, output_location, save_plots):
         self.alg_type = alg_type
         self.data = data
         self.all_metrics = all_metrics
         self.use_metrics = use_metrics
         self.output_location = output_location
+        self.output_plots_location = None
 
         if output_location is not None:
             if not os.path.exists(output_location):
                 os.makedirs(output_location)
-
-            self.output_plots_location = output_location + "plots/"
-            if not os.path.exists(self.output_plots_location):
-                os.makedirs(self.output_plots_location)
+            if save_plots:
+                self.output_plots_location = output_location + "plots/"
+                if not os.path.exists(self.output_plots_location):
+                    os.makedirs(self.output_plots_location)
 
         self.scaled_data = scale_data(data, all_metrics)
 
@@ -40,6 +41,7 @@ class Clustering(ABC):
 
     @abstractmethod
     def cluster(self, column_name):
+        logging.info('---------------------------------------------------------')
         self.clustering_column_name = column_name
 
     def merge_test_coverage(self, file):
@@ -74,9 +76,9 @@ class Clustering(ABC):
         logging.info(methods_nr)
 
         logging.info('Clusters statistics')
-        logging.info('High\n' + high.describe().to_string())
-        logging.info('Regular\n' + regular.describe().to_string())
-        logging.info('Low\n' + low.describe().to_string())
+        logging.info('High\n' + high[self.all_metrics].describe().to_string())
+        logging.info('Regular\n' + regular[self.all_metrics].describe().to_string())
+        logging.info('Low\n' + low[self.all_metrics].describe().to_string())
 
     def create_plots(self):
         if self.output_scaled_data is None:
@@ -96,8 +98,8 @@ class Clustering(ABC):
 
 
 class ThresholdClustering(Clustering):
-    def __init__(self, data, all_metrics, use_metrics, output_location=None):
-        super().__init__("threshold", data, all_metrics, use_metrics, output_location)
+    def __init__(self, data, all_metrics, use_metrics, output_location=None, save_plots=False):
+        super().__init__("threshold", data, all_metrics, use_metrics, output_location, save_plots)
 
     def __threshold_clustering(self):
         data = self.scaled_data.copy()
@@ -144,8 +146,8 @@ class ThresholdClustering(Clustering):
 
 
 class KMeansClustering(Clustering):
-    def __init__(self, data, all_metrics, use_metrics, output_location=None):
-        super().__init__("k-means", data, all_metrics, use_metrics, output_location)
+    def __init__(self, data, all_metrics, use_metrics, output_location=None, save_plots=False):
+        super().__init__("k-means", data, all_metrics, use_metrics, output_location, save_plots)
 
     def cluster(self, column_name):
         super().cluster(column_name)
@@ -156,7 +158,7 @@ class KMeansClustering(Clustering):
         k_means = KMeans(init="random", n_clusters=3, random_state=42)
         k_means.fit(self.scaled_data[self.use_metrics])
 
-        cl_result = label_data(self.scaled_data, self.use_metrics, k_means.labels_)
+        cl_result = label_data(self.scaled_data, self.use_metrics, k_means.labels_, column_name)
         text = 'Ended k-means classification in {:.3f} seconds'.format(time.time() - start_time)
         logging.info(text)
 
@@ -169,8 +171,8 @@ class KMeansClustering(Clustering):
 
 
 class EMClustering(Clustering):
-    def __init__(self, data, all_metrics, use_metrics, output_location=None):
-        super().__init__("em", data, all_metrics, use_metrics, output_location)
+    def __init__(self, data, all_metrics, use_metrics, output_location=None, save_plots=False):
+        super().__init__("em", data, all_metrics, use_metrics, output_location, save_plots)
 
     def cluster(self, column_name):
         super().cluster(column_name)
@@ -183,7 +185,7 @@ class EMClustering(Clustering):
         gmm.fit(self.scaled_data[self.use_metrics])
         labels = gmm.predict(self.scaled_data[self.use_metrics])
 
-        cl_result = label_data(self.scaled_data, self.use_metrics, labels)
+        cl_result = label_data(self.scaled_data, self.use_metrics, labels, column_name)
         text = 'Ended EM classification in {:.3f} seconds'.format(time.time() - start_time)
         logging.info(text)
 

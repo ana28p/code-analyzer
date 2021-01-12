@@ -24,7 +24,7 @@ def get_total_mean_of_cluster(data, variables, cluster):
     return cluster_means.mean()
 
 
-def label_data(data, using_variables, cluster_classification):
+def label_data(data, using_variables, cluster_classification, label):
     data['clust'] = cluster_classification
 
     f_mean = get_total_mean_of_cluster(data, using_variables, 0)
@@ -43,7 +43,7 @@ def label_data(data, using_variables, cluster_classification):
         if value == means_dict[means_list[2]]:
             return "high"
 
-    data['CLevel'] = data['clust'].apply(to_string_label)
+    data[label] = data['clust'].apply(to_string_label)
     return data.drop(['clust'], axis=1)
 
 
@@ -80,8 +80,8 @@ def classification_report(real, predicted):
     print(report)
     print('Confusion matrix')
     cm_res = print_cm(conf_matrix, labels)
-    res.append('ARI ' + ari)
-    res.append('Accuracy ' + acc)
+    res.append('ARI ' + str(ari))
+    res.append('Accuracy ' + str(acc))
     res.append(report)
     res.append('Confusion matrix')
 

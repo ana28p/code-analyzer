@@ -20,19 +20,21 @@ pd.set_option('display.width', 1000)
 
 
 class Analysis:
-    def __init__(self, data, all_metrics, use_metrics, output_location):
+    def __init__(self, data, all_metrics, use_metrics, output_location=None, save_plots=False):
         self.data = data
         self.all_metrics = all_metrics
         self.use_metrics = use_metrics
         self.output_location = output_location
+        self.output_plots_location = None
 
         if output_location is not None:
             if not os.path.exists(output_location):
                 os.makedirs(output_location)
 
-            self.output_plots_location = output_location + "plots/"
-            if not os.path.exists(self.output_plots_location):
-                os.makedirs(self.output_plots_location)
+            if save_plots:
+                self.output_plots_location = output_location + "plots/"
+                if not os.path.exists(self.output_plots_location):
+                    os.makedirs(self.output_plots_location)
 
         self.scaled_data = scale_data(data, all_metrics)
         self.projected_res = None
@@ -46,8 +48,8 @@ class Analysis:
             plt_scaled_data.savefig(self.output_plots_location + 'qqplots_scaled.pdf', bbox_inches='tight', pad_inches=0)
 
     def describe_variables(self):
-        logging.info("\n" + self.data[self.all_metrics].describe().to_string())
-        logging.info("Sum of LOC: " + self.data['LOC'].sum().to_string())
+        logging.info("Variables description\n" + self.data[self.all_metrics].describe().to_string())
+        logging.info("Sum of LOC: " + str(self.data['LOC'].sum()))
 
     def perform_correlation(self):
         p_corr = self.scaled_data[self.all_metrics].corr(method='kendall')
@@ -98,11 +100,11 @@ class Analysis:
         sse = []
         X = self.scaled_data[self.use_metrics]
         for k in range(1, 11):
-            ekmeans = KMeans(n_clusters=k, **kmeans_kwargs)
-            ekmeans.fit(X)
-            sse.append(ekmeans.inertia_)
+            kmeans = KMeans(n_clusters=k, **kmeans_kwargs)
+            kmeans.fit(X)
+            sse.append(kmeans.inertia_)
         kl = KneeLocator(range(1, 11), sse, curve="convex", direction="decreasing")
-        logging.info('Recommended cluster number for K-means: ' + kl.elbow)
+        logging.info('Recommended cluster number for K-means: ' + str(kl.elbow))
 
         if self.output_plots_location is not None:
             plt.plot(range(1, 11), sse, 'bx-')
@@ -116,7 +118,7 @@ class Analysis:
         X = self.scaled_data[self.use_metrics].to_numpy()
         models = [mixture.GaussianMixture(n, covariance_type='full', random_state=0).fit(X)
                   for n in n_components]
-        logging.info('For EM clustering, please check the plot image. The smallest values are considered the best.')
+        logging.info('For EM, please check the plot image. The smallest values are considered the best.')
 
         if self.output_plots_location is not None:
             plt.plot(n_components, [m.bic(X) for m in models], 'x-', label='BIC')
@@ -127,3 +129,10 @@ class Analysis:
 
             plt.savefig(self.output_plots_location + 'em_bic-aic.pdf', bbox_inches='tight', pad_inches=0)
 
+    def correlation_changed_lines_and_metrics(self, changed_lines_file):
+        chg_lines_data = pd.read_csv(changed_lines_file, sep=';')
+        data_combined = pd.merge(self.data, chg_lines_data[['Previous_Method_Parsed', 'ChgLines']],
+                                 how='inner', left_on='Method', right_on='Previous_Method_Parsed')
+
+        p_corr = data_combined[self.all_metrics + ['ChgLines']].corr(method='kendall')
+        logging.info("Correlation of metrics including chg lines \n" + p_corr.to_string())
