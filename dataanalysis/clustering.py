@@ -28,7 +28,7 @@ class Clustering(ABC):
             if not os.path.exists(output_location):
                 os.makedirs(output_location)
 
-            self.output_plots_location = output_location + "plots"
+            self.output_plots_location = output_location + "plots/"
             if not os.path.exists(self.output_plots_location):
                 os.makedirs(self.output_plots_location)
 
@@ -92,7 +92,7 @@ class Clustering(ABC):
                       jitter=0.25, size=5, ax=ax, linewidth=.3, dodge=True)
         plt.xlabel('')
         plt.ylabel('')
-        plt.savefig(self.output_plots_location + '/' + self.alg_type + '.pdf', bbox_inches='tight', pad_inches=0)
+        plt.savefig(self.output_plots_location + self.alg_type + '.pdf', bbox_inches='tight', pad_inches=0)
 
 
 class ThresholdClustering(Clustering):
