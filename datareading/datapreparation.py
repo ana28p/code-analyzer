@@ -176,10 +176,10 @@ if __name__ == "__main__":
     merged.drop(['Method_Parsed', 'Method_calls'], axis=1, inplace=True)
 
     if save:
-        merged.to_csv(SAVE_TO_FOLDER + "merged.csv", sep=';', index=False)
+        merged.to_csv(SAVE_TO_FOLDER + "merged_init.csv", sep=';', index=False)
 
     merged['NChg'].fillna(1, inplace=True)
     merged['NCall'].fillna(0, inplace=True)
 
     if save:
-        merged.to_csv(SAVE_TO_FOLDER + "merged_filledna.csv", sep=';', index=False)
+        merged.to_csv(SAVE_TO_FOLDER + "merged.csv", sep=';', index=False)
