@@ -19,9 +19,7 @@ def merge_clevel_in_data(in_data, from_data):
 
 
 def threshold_clustering(data, metrics_list):
-    print('Threshold clustering')
-    data["CRank"] = data.sum(axis=1)
-    # min_col, max_col = data["CRank"].min(), data["CRank"].max()
+    data["CRank"] = data[metrics_list].sum(axis=1)
     ordered_data = data.sort_values(by='CRank', ignore_index=True)
     n = ordered_data.shape[0]
     first_cut = round(n * 0.7)
@@ -34,9 +32,9 @@ def threshold_clustering(data, metrics_list):
     return ordered_data
 
 
-def get_total_mean_of_cluster(data, metrics_list, cluster):
-    cluster = data[data['clust'] == cluster]
-    cluster_means = cluster[metrics_list].mean(axis = 0)
+def get_total_mean_of_cluster(data, metrics_list, cluster_val):
+    cluster = data[data['clust'] == cluster_val]
+    cluster_means = cluster[metrics_list].mean(axis=0)
     return cluster_means.mean()
 
 
@@ -65,16 +63,13 @@ def label_data(data, metrics_list, labels):
 
 
 def k_means_clustering(data, metrics_list, rand_state):
-    # print('K means clustering')
-    k_means = KMeans(init="random", n_clusters=3, random_state=rand_state)  # , random_state=42)  # n_init=10, max_iter=300,
-    # print(metrics_list)
+    k_means = KMeans(init="random", n_clusters=3, random_state=rand_state)
     k_means.fit(data[metrics_list])
 
     return label_data(data, metrics_list, k_means.labels_)
 
 
 def em_clustering(data, metrics_list, rand_state):
-    # print('EM clustering')
     gmm = mixture.GaussianMixture(n_components=3, covariance_type='full', random_state=rand_state)
     gmm.fit(data[metrics_list])
     labels = gmm.predict(data[metrics_list])
@@ -84,18 +79,17 @@ def em_clustering(data, metrics_list, rand_state):
 
 def analysis(data, selected_metrics, clustering_type):
     scaled_data = scale_data(data, selected_metrics)
-    data_classified = None
+    cluster_data = None
 
     rand_state = 42
 
     if clustering_type == ClusteringType.THRESHOLD:
-        threshold_cluster_data = threshold_clustering(scaled_data, selected_metrics)
-        data_classified = merge_clevel_in_data(data, threshold_cluster_data)
+        cluster_data = threshold_clustering(scaled_data, selected_metrics)
     elif clustering_type == ClusteringType.K_MEANS:
-        k_means_cluster_data = k_means_clustering(scaled_data, selected_metrics, rand_state=rand_state)
-        data_classified = merge_clevel_in_data(data, k_means_cluster_data)
+        cluster_data = k_means_clustering(scaled_data, selected_metrics, rand_state=rand_state)
     elif clustering_type == ClusteringType.EM:
-        em_cluster_data = em_clustering(scaled_data, selected_metrics, rand_state=rand_state)
-        data_classified = merge_clevel_in_data(data, em_cluster_data)
+        cluster_data = em_clustering(scaled_data, selected_metrics, rand_state=rand_state)
+
+    data_classified = merge_clevel_in_data(data, cluster_data)
 
     return data_classified
