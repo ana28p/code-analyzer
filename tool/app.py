@@ -1,3 +1,26 @@
+"""
+The main file to create and display visualisations for method clustering.
+
+The application expects a data folder that contains the method metrics and test coverage files for each project.
+For example:
+data/
+    project1/
+        metrics.csv
+        test_coverage.csv
+    project2/
+        metrics.csv
+        test_coverage.csv
+    ...
+
+The name of the projects are retrieved automatically from the data sub-directories names.
+
+ - The metrics.csv files has to contain a column "Method" with the method signatures,
+   the list of metric types are get automatically depending what columns are numeric.
+ - The test_coverage.csv has to contain the columns "Method", "TotalStatements", "CoveredStatements"
+ Otherwise, the references to these column names have to be modified.
+
+"""
+
 import os
 import pathlib as pl
 from urllib.parse import quote as urlquote
@@ -26,23 +49,18 @@ app = dash.Dash(__name__)
 server = app.server
 app.config.suppress_callback_exceptions = True
 
-# Projects:
-TAX_COMPARE = 'tax-compare'
-TAX_I = 'tax-i'
-SHAREX = 'sharex'
-
 intro_text = """
 **About this app**
 
 This app groups the method metrics in 3 sub-groups based on the selected metrics to create 3 levels of criticality: high, regular and low. 
 There are three ways to do it:
-- threshold-based by summing the metrics and split them based on percentile thresholds: >90% of the methods are grouped as high, 70-90% as regular, and <70% as low
-- K-means clustering algorithm groups the methods in 3 clusters; the classification in the 3 levels of criticality
+- _Threshold-based_ by summing the metrics and split them based on percentile thresholds: >90% of the methods are grouped as high, 70-90% as regular, and <70% as low
+- _K-means clustering algorithm_ groups the methods in 3 clusters; the classification in the 3 levels of criticality
  is based on total mean value of the metrics within a cluster
-- Expectation-Maximisation (EM) clustering algorithm groups the method in 3 clusters; the classification in the 3 levels of criticality
+- _Expectation-Maximisation (EM) clustering algorithm_ groups the method in 3 clusters; the classification in the 3 levels of criticality
  is based on total mean value of the metrics within a cluster
  
-Select at least one variable, then click on the type of clustering you want to perform. 
+**Select at least one variable, then click on the type of clustering you want to perform.** 
 The clustering is based on the selected variables. The computing and rendering of the visualisations might take a few seconds.
 
 """
@@ -51,7 +69,6 @@ The clustering is based on the selected variables. The computing and rendering o
 @server.route("/download/<path:path>")
 def download(path):
     value = flask.request.args.get('value')
-    print('firstly write results to ', path)
     result = pd.read_json(value)
     result.to_csv(path, sep=';', index=False)
     return send_file(path, mimetype='text/csv', as_attachment=True)
@@ -64,17 +81,6 @@ app.layout = html.Div([
     html.Div(id='page-content')
 ])
 
-index_page = html.Div([
-    html.H4("Project not specified or non-existent"),
-    html.Hr(),
-    html.P("Available projects to visualise:"),
-    html.Div([
-        html.Li(dcc.Link('TAX-Compare', href='/tax-compare')),
-        html.Li(dcc.Link('TAX-I', href='/tax-i')),
-        html.Li(dcc.Link('ShareX', href='/sharex')),
-    ])
-])
-
 myapp_layout = html.Div(
     children=[
         dcc.Store(id="metrics-data-store"),
@@ -84,11 +90,10 @@ myapp_layout = html.Div(
         html.Hr(),
         html.Div(id="intro-text", children=dcc.Markdown(intro_text)),
         html.Hr(),
-        html.P("Variables Options"),
+        html.H6("Variables Options"),
         dcc.Checklist(
             id="data-metrics",
             options=[],
-            # value=dashboard_pj.metrics_List,
             labelStyle={'display': 'inline-block', 'margin': '5px'}
         ),
         html.Div(
@@ -131,7 +136,7 @@ myapp_layout = html.Div(
             children=[
                 html.Div(
                     children=[
-                        html.P("Classification"),
+                        html.H5("Classification"),
                         html.Hr(),
                         html.Div(id="cluster_result"),
                     ],
@@ -139,7 +144,7 @@ myapp_layout = html.Div(
                 ),
                 html.Div(
                     children=[
-                        html.P("Test coverage"),
+                        html.H5("Test coverage"),
                         html.Hr(),
                         html.Div(id="test_coverage"),
                     ],
@@ -228,7 +233,7 @@ def test_coverage_elements(data_coverage):
     high = data_coverage[data_coverage['CLevel'] == "high"]
 
     return [
-        html.P("Total coverage: " + str(round(total_coverage * 100, 2)) + "%"),
+        html.H6("Total coverage: " + str(round(total_coverage * 100, 2)) + "%"),
         dcc.Graph(figure=get_pie_charts(low, regular, high)),
     ]
 
@@ -247,11 +252,12 @@ def get_strip_plot(data):
 
     stripfig.update_traces(dict(marker_line_width=0.5, marker_line_color="grey"))
     stripfig.update_layout(
-        # title_text="",
         height=500,
-        # width=900,
         margin=dict(l=0, r=0, t=0, b=0),
-        template="plotly_white"
+        template="plotly_white",
+        font=dict(
+            size=16,
+        )
     )
     return stripfig
 
@@ -323,19 +329,16 @@ def cluster_result_elements(melted_data, dict_split):
     total_number_methods = sum(list(dict_split.values()))
 
     return [
-        html.P("Total number of methods: " + str(total_number_methods)),
+        html.H6("Total number of methods: " + str(total_number_methods)),
         dcc.Graph(figure=get_methods_splitted_bar(dict_split), config={'responsive': False, 'staticPlot': True}),
-        html.P("Distribution of the scaled variables for each group"),
+        html.H6("Distribution of the scaled variables for each level"),
         dcc.Graph(figure=get_strip_plot(melted_data)),
-        # html.P("PCA"),
     ]
 
 
 def get_tree_map_figure(data):
     data_class = get_tree_map_data(data.copy(), 'Method')
     fig = px.treemap(data_class, path=['Parent_class', 'Class', 'Method'], values='LOC', color='CLevel',
-                     # color_discrete_map={'(?)': 'black', "high": "firebrick", "regular": "goldenrod",
-                     #                     "low": "cornflowerblue"}
                      color_discrete_map={'(?)': 'black', "high": "salmon", "regular": "wheat",
                                          "low": "lightskyblue"}
                      )
@@ -349,7 +352,7 @@ def get_uncoverage_percentage(row):
 
 
 def file_download_link(project_name, result_json):
-    """Create a Plotly Dash 'A' element that downloads a file from the app."""
+    """Creates a Plotly Dash 'A' element that downloads a file from the app."""
     filename_path = os.path.join("data", project_name, "result.csv")
     location = "/download/{}?value={}".format(urlquote(filename_path), result_json)
     return html.A("Download the result data in CSV format", href=location)
@@ -450,10 +453,26 @@ def update_project(pathname):
     [Input('project-name', 'data')])
 def update_layout(project):
     print("try to switch to layout: ", project)
-    if project == TAX_COMPARE or project == TAX_I or project == SHAREX:
-        return myapp_layout
+    data_path = os.path.join(APP_PATH, "data")
+    if os.path.exists(data_path):
+        if project in os.listdir(data_path):
+            return myapp_layout
+        else:
+            pj_links = [html.Li(dcc.Link(pj, href='/' + pj)) for pj in os.listdir(data_path)]
+            return html.Div([
+                html.H4("Project not specified or non-existent"),
+                html.Hr(),
+                html.P("Available projects to visualise:"),
+                html.Div(pj_links)
+            ])
     else:
-        return index_page
+        return html.Div([
+            html.H4("No data available"),
+            html.Hr(),
+            html.P(['More info about the required data can be found on ',
+                    html.A('GitHub', href='https://github.com/ana28p/code-analyzer'),
+                    ', Section Prototype application']),
+        ])
 
 
 @app.callback(
@@ -477,9 +496,9 @@ def update_header(project):
 def update_metrics_data_store(project):
     if project:
         path = os.path.join(APP_PATH, os.path.join("data", project + "/metrics.csv"))
-        return pd.read_csv(path, sep=';').to_json()
-    else:
-        return None
+        if project and os.path.exists(path):
+            return pd.read_csv(path, sep=';').to_json()
+    return None
 
 
 @app.callback(
@@ -501,7 +520,6 @@ def update_metrics_options_dict(metrics_ds):
     if metrics_ds is not None:
         df = pd.read_json(metrics_ds)
         metrics_list = list(df.select_dtypes(include=[np.number]).columns.values)
-        # metrics_list = ['LOC', 'CC', 'NP', 'NV', 'NEST', 'Ca', 'Ce', 'NChg', 'NCall']
     metrics_map = []
     for metric in metrics_list:
         metrics_map.append({"label": metric, "value": metric})
@@ -680,8 +698,10 @@ def update_table(page_current, page_size, sort_by, filter, clustered_ds, coverag
 
 
 if __name__ == "__main__":
+    # Use for Docker env
     debug = False if os.environ["DASH_DEBUG_MODE"] == "False" else True
     app.run_server(host="0.0.0.0", port=8050, debug=debug)
+    # Use to run locally
     # app.run_server(
     #     debug=True, port=8051, dev_tools_hot_reload=False, use_reloader=False
     # )
