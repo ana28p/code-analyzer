@@ -61,7 +61,7 @@
     width: 100%; }
   .column,
   .columns {
-    margin-left: 4%; }
+    margin-left: 1%; }
   .column:first-child,
   .columns:first-child {
     margin-left: 0; }
@@ -185,7 +185,7 @@ input[type="button"] {
   padding: 0 30px;
   color: #555;
   text-align: center;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 600;
   line-height: 38px;
   letter-spacing: .1rem;
