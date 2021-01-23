@@ -108,6 +108,7 @@ class Analysis:
         logging.info('Recommended cluster number for K-means: ' + str(kl.elbow))
 
         if self.output_plots_location is not None:
+            plt.close("all")
             plt.plot(range(1, 11), sse, 'bx-')
             plt.xticks(range(1, 11))
             plt.xlabel("Number of Clusters")

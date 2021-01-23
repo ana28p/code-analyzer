@@ -18,8 +18,8 @@ def scale_data(data, metrics_list):
     return scaled_data
 
 
-def get_total_mean_of_cluster(data, variables, cluster):
-    cluster = data[data['clust'] == cluster]
+def get_total_mean_of_cluster(data, variables, cluster_val):
+    cluster = data[data['clust'] == cluster_val]
     cluster_means = cluster[variables].mean(axis=0)
     return cluster_means.mean()
 
@@ -98,7 +98,7 @@ def create_qq_subplots(data, variables):
 
 
 def plot_first_two_pca(data, projected_data_result, list_labels, list_titles, save_location):
-    fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(18, 5))
+    fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(10, 10))
     ax = axes.flatten()
     title_append = ['(a)', '(b)', '(c)']
     for i in range(3):
@@ -106,9 +106,9 @@ def plot_first_two_pca(data, projected_data_result, list_labels, list_titles, sa
         sns.scatterplot(x=projected_data_result['PC1'], y=projected_data_result['PC2'], hue=data[lvl],
                         palette={'low': 'blue', 'regular': '#DCB732', 'high': 'red'},
                         hue_order=["high", "regular", "low"], s=20, ax=ax[i])
-        ax[i].legend(loc="lower left", title=list_titles[i])
+        ax[i].legend(loc="best", title="CLevel")
         ax[i].title.set_text(title_append[i] + ' ' + list_titles[i])
-        ax[i].title.set_fontsize(16)
-
+        ax[i].title.set_fontsize(14)
+    axes[1, 1].remove()
     plt.savefig(save_location + 'pca.pdf', bbox_inches='tight', pad_inches=0)
     plt.close(fig)

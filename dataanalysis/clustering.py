@@ -111,9 +111,9 @@ class ThresholdClustering(Clustering):
         first_cut = round(n * 0.7)
         second_cut = round(n * 0.9)
 
-        ordered_data.loc[second_cut:, self.clustering_column_name] = "high"
-        ordered_data.loc[first_cut:second_cut, self.clustering_column_name] = "regular"
         ordered_data.loc[:first_cut, self.clustering_column_name] = "low"
+        ordered_data.loc[first_cut:second_cut, self.clustering_column_name] = "regular"
+        ordered_data.loc[second_cut:, self.clustering_column_name] = "high"
 
         return ordered_data
 

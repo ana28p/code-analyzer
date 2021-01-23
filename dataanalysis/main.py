@@ -154,15 +154,17 @@ def execute_process_for(resources_location, output_location, save_plots, real_la
                                         save_plots,
                                         ['LOC', 'CC', 'NP', 'NV', 'NEST', 'Ca', 'Ce', 'NChg', 'NCall'],
                                         real_labels_filename)
-    data_classified_reduced = start_process(resources_location,
+    logging.info('\n\n')
+    data_classified_no_call = start_process(resources_location,
                                             output_location + "classification_no_call/",
                                             save_plots,
-                                            ['LOC', 'NP', 'Ca', 'Ce', 'NChg'],
+                                            ['LOC', 'CC', 'NP', 'NV', 'NEST', 'Ca', 'Ce', 'NChg'],
                                             real_labels_filename)
-    data_classified_no_call = start_process(resources_location,
+    logging.info('\n\n')
+    data_classified_reduced = start_process(resources_location,
                                             output_location + "classification_reduced/",
                                             save_plots,
-                                            ['LOC', 'CC', 'NP', 'NV', 'NEST', 'Ca', 'Ce', 'NChg'],
+                                            ['LOC', 'NP', 'Ca', 'Ce', 'NChg'],
                                             real_labels_filename)
 
     logging.info('Comparison result between pair of classification between all and reduced')
@@ -182,21 +184,21 @@ if __name__ == "__main__":
     logging.basicConfig(filename='C:/Users/Anamaria/Documents/master/final_project/experiments/info.log',
                         level=logging.INFO, format='%(asctime)s %(message)s', datefmt='%d/%m/%Y %H:%M:%S')
 
-    logging.info(">>>>>>>>>>>>>>>>>>> Tax-c <<<<<<<<<<<<<<<<<<<")
+    logging.info("\n>>>>>>>>>>>>>>>>>>>>>>>>>>>> Tax-c <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n")
     pj = "C:/Users/Anamaria/Documents/master/final_project/experiments/tax-c/"
     execute_process_for(pj + "analysis/v111/merged/",
                         pj + "analysis/v111/",
                         True,
                         "methods_labelled.csv")
 
-    logging.info(">>>>>>>>>>>>>>>>>>> Tax-i <<<<<<<<<<<<<<<<<<<")
+    logging.info("\n>>>>>>>>>>>>>>>>>>>>>>>>>>>> Tax-i <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n")
     pj = "C:/Users/Anamaria/Documents/master/final_project/experiments/tax-i/"
     execute_process_for(pj + "analysis/jan2020/merged/",
                         pj + "analysis/jan2020/",
                         True,
                         "methods_labelled.csv")
 
-    logging.info(">>>>>>>>>>>>>>>>>>> Sharex <<<<<<<<<<<<<<<<<<<")
+    logging.info("\n>>>>>>>>>>>>>>>>>>>>>>>>>>>> Sharex <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n")
     pj = "C:/Users/Anamaria/Documents/master/final_project/experiments/sharex/"
     execute_process_for(pj + "analysis/v12/merged/",
                         pj + "analysis/v12/",
