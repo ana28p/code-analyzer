@@ -1,3 +1,10 @@
+"""
+Module containing the classes for the clustering approaches.
+
+The Clustering class contains the common functionality and an abstract method to be implemented
+by each type of clustering: ThresholdClustering, KMeansClustering, EMClustering
+"""
+
 import pandas as pd
 import os
 import matplotlib.pyplot as plt

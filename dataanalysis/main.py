@@ -1,3 +1,15 @@
+"""
+The main file to perform metrics analysis on the given data set.
+
+Providing a folder location the necessarily files are:
+ / "metrics.csv"  -> the file contains the metrics for each method
+ / "test_coverage.csv"  -> the test coverage for each method
+ / "changed_lines.csv"  -> the number of changed lines for the validation part
+
+The analysis creates an output folder with a log file and the resulting analysis artifacts.
+
+"""
+
 import pandas as pd
 import logging
 import os
@@ -18,6 +30,9 @@ EM_LBL = "CLevel_em"
 
 
 def compare_pair(data1, data2):
+    """
+    Creates result report for two given classification labels, where the first is considered truth.
+    """
     ari = adjusted_rand_score(data1, data2)
     pr = compute_metrics.precision_score(data1, data2, labels=['high', 'regular', 'low'], average=None)
     acc = compute_metrics.accuracy_score(data1, data2)
@@ -26,6 +41,10 @@ def compare_pair(data1, data2):
 
 
 def compare_results(data_complete, labels):
+    """
+    Compares the result of a classification for each pair of levels. The first level being considered truth.
+    high with regular, high with low, regular with low, etc
+    """
     logging.info('Comparison result between pair of classification')
     for l1 in labels:
         for l2 in labels:
@@ -37,6 +56,9 @@ def compare_results(data_complete, labels):
 def process_steps(data, list_of_metric_types, use_metric_types,
                   real_labels_file, changed_lines_file,
                   test_coverage_file, save_to_location, save_plots):
+    """
+    Process steps for all types of clustering approaches
+    """
 
     logging.info('Analyse data based on variables ' + ', '.join(use_metric_types))
 
@@ -121,6 +143,9 @@ def process_steps(data, list_of_metric_types, use_metric_types,
 
 
 def start_process(data_location, output_location, save_plots, use_metric_types, real_labels_file=None):
+    """
+    Starts the process by reading the required files and initializing the process
+    """
     metrics_file = data_location / "metrics.csv"
     test_coverage_file = data_location / "test_coverage.csv"
     changed_lines_file = data_location / "changed_lines.csv"
@@ -151,6 +176,10 @@ def start_process(data_location, output_location, save_plots, use_metric_types, 
 
 
 def execute_process_for(resources_location, output_location, save_plots, real_labels_filename=None):
+    """
+    Executes the analysis process on multiple sets of metrics,
+    then compares between the results using all metrics and the results using reduced list of metrics.
+    """
     logging.info('Started')
     data_classified_all = start_process(resources_location,
                                         output_location / "classification_all/",

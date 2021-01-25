@@ -1,4 +1,6 @@
-
+"""
+Module containing Validation class handling the validation step.
+"""
 import pandas as pd
 import os
 import seaborn as sns

@@ -1,3 +1,14 @@
+"""
+Module containing the Analysis class responsible for the data set analysis step.
+Possible functionalities:
+- QQ plots
+- variables statistics
+- Kendal correlation coefficients
+- Principal Components Analysis
+- Hopkins test
+- K-means elbow
+- AIC and BIC for EM
+"""
 
 import pandas as pd
 import numpy as np
