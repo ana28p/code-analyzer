@@ -24,7 +24,7 @@ class Validation:
             if not os.path.exists(output_location):
                 os.makedirs(output_location)
             if save_plots:
-                self.output_plots_location = output_location + "plots/"
+                self.output_plots_location = output_location / "plots/"
                 if not os.path.exists(self.output_plots_location):
                     os.makedirs(self.output_plots_location)
 
@@ -59,7 +59,7 @@ class Validation:
             plt.title(title, fontsize=14)
             plt.ylabel('Number of lines changed')
             plt.xlabel('Methods')
-            plt.savefig(self.output_plots_location + 'chg-lines_' + label + '.pdf', bbox_inches='tight', pad_inches=0)
+            plt.savefig(self.output_plots_location / ('chg-lines_' + label + '.pdf'), bbox_inches='tight', pad_inches=0)
             plt.close(fig)
 
     def using_changed_lines(self, changed_lines_file):

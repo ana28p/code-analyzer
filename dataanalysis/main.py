@@ -1,6 +1,7 @@
 import pandas as pd
 import logging
 import os
+from pathlib import Path
 import sklearn.metrics as compute_metrics
 from sklearn.metrics.cluster import adjusted_rand_score
 
@@ -8,6 +9,8 @@ from clustering import ThresholdClustering, KMeansClustering, EMClustering
 from analysis import Analysis
 from validation import Validation
 from utils import plot_first_two_pca
+
+base_path = Path(__file__).parent
 
 THRESHOLD_LBL = "CLevel_threshold"
 KMEANS_LBL = "CLevel_k_means"
@@ -90,7 +93,7 @@ def process_steps(data, list_of_metric_types, use_metric_types,
                              em_clustering.output_data[["Method", EM_LBL]],
                              on='Method', how='left')
 
-    data_complete.to_csv(save_to_location + "complete_classification.csv", sep=';', index=False)
+    data_complete.to_csv(save_to_location / "complete_classification.csv", sep=';', index=False)
 
     labels = [THRESHOLD_LBL, KMEANS_LBL, EM_LBL]
 
@@ -110,7 +113,7 @@ def process_steps(data, list_of_metric_types, use_metric_types,
     analysis_after.principal_component_analysis()
     plot_first_two_pca(data_complete, analysis_after.projected_res,
                        labels, ['Threshold', 'K-means', 'EM'],
-                       save_to_location + 'plots/')
+                       save_to_location / 'plots/')
 
     logging.info('==================================================')
 
@@ -118,9 +121,9 @@ def process_steps(data, list_of_metric_types, use_metric_types,
 
 
 def start_process(data_location, output_location, save_plots, use_metric_types, real_labels_file=None):
-    metrics_file = data_location + "merged.csv"
-    test_coverage_file = data_location + "test_coverage.csv"
-    changed_lines_file = data_location + "changed_lines.csv"
+    metrics_file = data_location / "metrics.csv"
+    test_coverage_file = data_location / "test_coverage.csv"
+    changed_lines_file = data_location / "changed_lines.csv"
     if real_labels_file is not None:
         real_labels_file = data_location + real_labels_file
     save_to_location = output_location
@@ -131,7 +134,7 @@ def start_process(data_location, output_location, save_plots, use_metric_types, 
         if not os.path.exists(save_to_location):
             os.makedirs(save_to_location)
 
-    logging.info('Reading metrics from file ' + metrics_file)
+    logging.info('Reading metrics from file ' + str(metrics_file))
 
     data = pd.read_csv(metrics_file, sep=';')
 
@@ -150,19 +153,19 @@ def start_process(data_location, output_location, save_plots, use_metric_types, 
 def execute_process_for(resources_location, output_location, save_plots, real_labels_filename=None):
     logging.info('Started')
     data_classified_all = start_process(resources_location,
-                                        output_location + "classification_all/",
+                                        output_location / "classification_all/",
                                         save_plots,
                                         ['LOC', 'CC', 'NP', 'NV', 'NEST', 'Ca', 'Ce', 'NChg', 'NCall'],
                                         real_labels_filename)
     logging.info('\n\n')
     data_classified_no_call = start_process(resources_location,
-                                            output_location + "classification_no_call/",
+                                            output_location / "classification_no_call/",
                                             save_plots,
                                             ['LOC', 'CC', 'NP', 'NV', 'NEST', 'Ca', 'Ce', 'NChg'],
                                             real_labels_filename)
     logging.info('\n\n')
     data_classified_reduced = start_process(resources_location,
-                                            output_location + "classification_reduced/",
+                                            output_location / "classification_reduced/",
                                             save_plots,
                                             ['LOC', 'NP', 'Ca', 'Ce', 'NChg'],
                                             real_labels_filename)
@@ -181,25 +184,13 @@ def execute_process_for(resources_location, output_location, save_plots, real_la
 
 
 if __name__ == "__main__":
-    logging.basicConfig(filename='C:/Users/Anamaria/Documents/master/final_project/experiments/info.log',
+    output_dir = (base_path / "output/").resolve()
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    logging.basicConfig(filename=(base_path / "output/info.log"),
                         level=logging.INFO, format='%(asctime)s %(message)s', datefmt='%d/%m/%Y %H:%M:%S')
 
-    logging.info("\n>>>>>>>>>>>>>>>>>>>>>>>>>>>> Tax-c <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n")
-    pj = "C:/Users/Anamaria/Documents/master/final_project/experiments/tax-c/"
-    execute_process_for(pj + "analysis/v111/merged/",
-                        pj + "analysis/v111/",
-                        True,
-                        "methods_labelled.csv")
-
-    logging.info("\n>>>>>>>>>>>>>>>>>>>>>>>>>>>> Tax-i <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n")
-    pj = "C:/Users/Anamaria/Documents/master/final_project/experiments/tax-i/"
-    execute_process_for(pj + "analysis/jan2020/merged/",
-                        pj + "analysis/jan2020/",
-                        True,
-                        "methods_labelled.csv")
-
     logging.info("\n>>>>>>>>>>>>>>>>>>>>>>>>>>>> Sharex <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n")
-    pj = "C:/Users/Anamaria/Documents/master/final_project/experiments/sharex/"
-    execute_process_for(pj + "analysis/v12/merged/",
-                        pj + "analysis/v12/",
-                        True)
+    execute_process_for(resources_location=(base_path / "sampledata/"),
+                        output_location=(base_path / "output/"),
+                        save_plots=True)

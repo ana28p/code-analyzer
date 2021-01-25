@@ -29,7 +29,7 @@ class Clustering(ABC):
             if not os.path.exists(output_location):
                 os.makedirs(output_location)
             if save_plots:
-                self.output_plots_location = output_location + "plots/"
+                self.output_plots_location = output_location / "plots/"
                 if not os.path.exists(self.output_plots_location):
                     os.makedirs(self.output_plots_location)
 
@@ -94,7 +94,7 @@ class Clustering(ABC):
                       jitter=0.25, size=5, ax=ax, linewidth=.3, dodge=True)
         plt.xlabel('')
         plt.ylabel('')
-        plt.savefig(self.output_plots_location + self.alg_type + '.pdf', bbox_inches='tight', pad_inches=0)
+        plt.savefig(self.output_plots_location / (self.alg_type + '.pdf'), bbox_inches='tight', pad_inches=0)
         plt.close(fig)
 
 
@@ -135,7 +135,7 @@ class ThresholdClustering(Clustering):
         logging.info(text)
 
         if self.output_location is not None:
-            data_classified.to_csv(self.output_location + "threshold_result.csv", sep=';', index=False)
+            data_classified.to_csv(self.output_location / "threshold_result.csv", sep=';', index=False)
 
         self.__c_rank_statistics(cl_result)
 
@@ -165,7 +165,7 @@ class KMeansClustering(Clustering):
 
         data_classified = pd.merge(self.data, cl_result[["Method", column_name]], on='Method', how='left')
         if self.output_location is not None:
-            data_classified.to_csv(self.output_location + "kmeans_result.csv", sep=';', index=False)
+            data_classified.to_csv(self.output_location / "kmeans_result.csv", sep=';', index=False)
 
         self.output_data = data_classified
         self.output_scaled_data = cl_result
@@ -192,7 +192,7 @@ class EMClustering(Clustering):
 
         data_classified = pd.merge(self.data, cl_result[["Method", column_name]], on='Method', how='left')
         if self.output_location is not None:
-            data_classified.to_csv(self.output_location + "em_result.csv", sep=';', index=False)
+            data_classified.to_csv(self.output_location / "em_result.csv", sep=';', index=False)
 
         self.output_data = data_classified
         self.output_scaled_data = cl_result

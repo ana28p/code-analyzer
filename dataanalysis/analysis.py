@@ -32,7 +32,7 @@ class Analysis:
                 os.makedirs(output_location)
 
             if save_plots:
-                self.output_plots_location = output_location + "plots/"
+                self.output_plots_location = output_location / "plots/"
                 if not os.path.exists(self.output_plots_location):
                     os.makedirs(self.output_plots_location)
 
@@ -42,10 +42,10 @@ class Analysis:
     def create_qq_plots(self):
         if self.output_plots_location is not None:
             plt_data = create_qq_subplots(self.data, self.all_metrics)
-            plt_data.savefig(self.output_plots_location + 'qqplots_unscaled.pdf', bbox_inches='tight', pad_inches=0)
+            plt_data.savefig(self.output_plots_location / 'qqplots_unscaled.pdf', bbox_inches='tight', pad_inches=0)
 
             plt_scaled_data = create_qq_subplots(self.scaled_data, self.all_metrics)
-            plt_scaled_data.savefig(self.output_plots_location + 'qqplots_scaled.pdf', bbox_inches='tight', pad_inches=0)
+            plt_scaled_data.savefig(self.output_plots_location / 'qqplots_scaled.pdf', bbox_inches='tight', pad_inches=0)
             plt.close('all')
 
     def describe_variables(self):
@@ -58,7 +58,7 @@ class Analysis:
         if self.output_plots_location is not None:
             fig, ax = plt.subplots(figsize=(10, 5))
             sns.heatmap(p_corr, xticklabels=p_corr.columns, yticklabels=p_corr.columns, annot=True, cmap='coolwarm', ax=ax)
-            plt.savefig(self.output_plots_location + 'correlation.pdf', bbox_inches='tight', pad_inches=0)
+            plt.savefig(self.output_plots_location / 'correlation.pdf', bbox_inches='tight', pad_inches=0)
 
     def principal_component_analysis(self):
         logging.info('Principal component analysis')
@@ -113,7 +113,7 @@ class Analysis:
             plt.xticks(range(1, 11))
             plt.xlabel("Number of Clusters")
             plt.ylabel("SSE")
-            plt.savefig(self.output_plots_location + 'k_means-sse.pdf', bbox_inches='tight', pad_inches=0)
+            plt.savefig(self.output_plots_location / 'k_means-sse.pdf', bbox_inches='tight', pad_inches=0)
             plt.close('all')
 
     def em_bic_aic(self):
@@ -130,7 +130,7 @@ class Analysis:
             plt.legend(loc='best')
             plt.xlabel('Number of Clusters')
 
-            plt.savefig(self.output_plots_location + 'em_bic-aic.pdf', bbox_inches='tight', pad_inches=0)
+            plt.savefig(self.output_plots_location / 'em_bic-aic.pdf', bbox_inches='tight', pad_inches=0)
             plt.close('all')
 
     def correlation_changed_lines_and_metrics(self, changed_lines_file):

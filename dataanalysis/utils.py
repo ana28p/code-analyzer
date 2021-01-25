@@ -110,5 +110,5 @@ def plot_first_two_pca(data, projected_data_result, list_labels, list_titles, sa
         ax[i].title.set_text(title_append[i] + ' ' + list_titles[i])
         ax[i].title.set_fontsize(14)
     axes[1, 1].remove()
-    plt.savefig(save_location + 'pca.pdf', bbox_inches='tight', pad_inches=0)
+    plt.savefig(save_location / 'pca.pdf', bbox_inches='tight', pad_inches=0)
     plt.close(fig)
