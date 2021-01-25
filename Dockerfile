@@ -1,6 +1,6 @@
 FROM python:3.8
 
-ENV DASH_DEBUG_MODE True
+ENV DASH_DEBUG_MODE False
 
 RUN mkdir -p /app
 COPY ./tool /app
