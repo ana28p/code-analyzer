@@ -136,7 +136,10 @@ myapp_layout = html.Div(
             children=[
                 html.Div(
                     children=[
-                        html.H5("Classification"),
+                        html.Div(children=[
+                            html.H5("Classification"),
+                            html.Div(id="cluster_type"),
+                        ], style={'display': 'flex'}),
                         html.Hr(),
                         html.Div(id="cluster_result"),
                     ],
@@ -527,7 +530,8 @@ def update_metrics_options_dict(metrics_ds):
 
 
 @app.callback(
-    Output("classification-data-store", "data"),
+    [Output("classification-data-store", "data"),
+     Output("cluster_type", "children")],
     [Input("btn-clust-th", "n_clicks_timestamp"),
      Input("btn-clust-km", "n_clicks_timestamp"),
      Input("btn-clust-em", "n_clicks_timestamp")],
@@ -538,18 +542,22 @@ def update_metrics_options_dict(metrics_ds):
 )
 def update_clustered_ds(btn_th, btn_km, btn_em, metrics_ds, selected_metrics):
     clust_type = None
+    clust_name = None
     if int(btn_th) > int(btn_km) and int(btn_th) > int(btn_em):
         clust_type = ClusteringType.THRESHOLD
+        clust_name = "threshold-based"
     elif int(btn_km) > int(btn_th) and int(btn_km) > int(btn_em):
         clust_type = ClusteringType.K_MEANS
+        clust_name = "K-means"
     elif int(btn_em) > int(btn_th) and int(btn_em) > int(btn_km):
         clust_type = ClusteringType.EM
+        clust_name = "EM"
 
     if (clust_type is not None) and (metrics_ds is not None) and selected_metrics and (len(selected_metrics) > 0):
         df = pd.read_json(metrics_ds)
         classified_data = analysis(df, selected_metrics, clust_type)
-        return classified_data.to_json()
-    return None
+        return classified_data.to_json(), html.H5(clust_name, style={"margin-left": "10px"})
+    return None, None
 
 
 @app.callback(
