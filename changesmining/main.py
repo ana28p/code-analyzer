@@ -1,4 +1,6 @@
-#!/usr/bin/env python3
+"""
+Module to mine the given repository before or after a tag or commit hash.
+"""
 
 from difflib import SequenceMatcher, Differ
 from typing import List
@@ -223,31 +225,6 @@ def get_methods_before(modification: Modification, methods: List[Method]) -> Lis
     return result
 
 
-# def validate_method_content(method_signature: str, content: List[str]):
-#     braces = 0
-#     start = 0
-#     end = -1
-#     is_the_method = False
-#     sig, _ = split_method_long_name(method_signature)
-#     for i in range(len(content)):
-#         line = content[i]
-#         if sig in line:
-#             start = i
-#             is_the_method = True
-#         if not is_the_method:
-#             continue
-#         for c in line:
-#             if c == '{':
-#                 braces += 1
-#             elif c == '}':
-#                 braces -= 1
-#         if braces == 0:
-#             # end of method
-#             end = i
-#             break
-#     return content[start:end]
-
-
 def get_dict_content_of_methods(source_code: str, methods: List[Method]):
     methods_dict = {}
     for m in methods:
@@ -344,10 +321,6 @@ def handle_new_updated(modification: Modification, m_new, m_updated,
 
     m_pairs = get_pairs_of_similar_methods(d_updated_before, d_current)
 
-    # print('for commit ', commit.commit_hash, commit.msg, commit.date)
-    # print('file ', c_file.filename)
-    # print('pairs', [(r, l) for r, l in m_pairs])
-
     for before_m_name, current_m_name in m_pairs:
         before_m = next(m for m in updated_before if m.long_name == before_m_name)
         current_m = next(m for m in (m_new + m_updated) if m.long_name == current_m_name)
@@ -368,10 +341,6 @@ def handle_new_obsolete(modification: Modification, m_new, m_obsolete,
     d_new = get_dict_content_of_methods(modification.source_code, m_new)
 
     m_pairs = get_pairs_of_similar_methods(d_obsolete, d_new)
-
-    # print('for commit ', commit.commit_hash, commit.msg, commit.date)
-    # print('file ', c_file.filename)
-    # print('pairs', [(r, l) for r, l in m_pairs])
 
     for before_m_name, current_m_name in m_pairs:
         before_m = next(m for m in m_obsolete if m.long_name == before_m_name)
@@ -402,10 +371,6 @@ def handle_new_obsolete_updated(modification: Modification, m_new: List[Method],
 
     m_pairs = get_pairs_of_similar_methods(d_before, d_current)
 
-    # print('for commit ', commit.commit_hash, commit.msg, commit.date)
-    # print('file ', c_file.filename)
-    # print('pairs', [(r, l) for r, l in m_pairs])
-
     for before_m_name, current_m_name in m_pairs:
         before_m = next(m for m in (m_obsolete + updated_before) if m.long_name == before_m_name)
         current_m = next(m for m in (m_new + m_updated) if m.long_name == current_m_name)
@@ -423,7 +388,7 @@ def handle_new_obsolete_updated(modification: Modification, m_new: List[Method],
     remove_methods(c_file, list(d_before.keys()), commit)
 
 
-def check_and_update_methods2(modification: Modification, c_file: ChangedFile, commit: Commit):
+def check_and_update_methods(modification: Modification, c_file: ChangedFile, commit: Commit):
     methods = MethodsSplit(modification)
 
     renamed = check_for_rename(modification, c_file, methods)
@@ -463,56 +428,6 @@ def check_and_update_methods2(modification: Modification, c_file: ChangedFile, c
     check_current_methods(modification, c_file, commit)
 
 
-def check_and_update_methods(c_file: ChangedFile, commit: Commit, modification: Modification):
-    methods = MethodsSplit(modification)
-
-    renamed = check_for_rename(modification, c_file, methods)
-
-    if len(methods.names_obsolete) > 0:  # removed or renamed
-        if len(methods.names_new) == 0:  # no new => only removed
-            remove_methods(c_file, methods.names_obsolete, commit)
-        else:
-            # in case methods were updated and their namespace or class renamed, they will appear as obs and new
-            updated_obs = []
-            for om in methods.obsolete:
-                to_replace = ('', '', 0)
-                for nm in methods.new:
-                    sig_obs_m, cls_obs_m = split_method_long_name(om.long_name)
-                    sig_new_m, cls_new_m = split_method_long_name(nm.long_name)
-
-                    # check first if the namespace or class were renamed, but they have the same signature
-                    if (cls_obs_m in renamed) and (renamed[cls_obs_m] == cls_new_m) and (sig_obs_m == sig_new_m):
-                        to_replace = (om, nm, 1)
-                        break
-                    else:
-                        # check for method rename using similarity
-                        sim = SequenceMatcher(None, sig_obs_m, sig_new_m).ratio()
-                        if sim > to_replace[2]:
-                            to_replace = (om, nm, sim)
-
-                obs_m, new_m, similarity = to_replace
-                if similarity >= 0.7:
-                    try:
-                        replace_and_update_method(modification, c_file, commit, obs_m, new_m)
-                        updated_obs.append(obs_m.long_name)
-                        methods.names_new.remove(new_m.long_name)
-                        methods.new.remove(new_m)
-                    except ValueError as e:
-                        # if the replace fails, don't do anything
-                        # the old method will be removed and the new method will be considered as new
-                        print(e)
-            # remove obsolete methods that were not updated
-            if len(updated_obs) != len(methods.names_obsolete):
-                to_remove = [val for val in methods.names_obsolete if val not in updated_obs]
-                remove_methods(c_file, to_remove, commit)
-
-    for m in methods.names_new:
-        update_or_create_method_using_str(c_file, m, commit)
-
-    for m in methods.updated:
-        update_or_create_method(modification, c_file, m, commit)
-
-
 def reset_changed_methods_and_save_name():
     for _, changed_file in files.items():
         for m in changed_file.methods:
@@ -524,8 +439,6 @@ def mine(repository: str, from_tag: str = None, to_tag: str = None,
          from_com: str = None, to_com: str = None):
     c_count = 0
     for c in RepositoryMining(repository,
-                              # only_modifications_with_file_types=['.cs'],
-                              # only_no_merge=True,
                               from_tag=from_tag,
                               to_tag=to_tag,
                               from_commit=from_com,
@@ -555,13 +468,7 @@ def mine(repository: str, from_tag: str = None, to_tag: str = None,
                 else:
                     c_file = search_modified_file_or_create(mod.filename, mod.new_path)
 
-                # check_and_update_methods(c_file, commit, mod)
-                check_and_update_methods2(mod, c_file, commit)
-            # except Exception as e:
-            #     print(e)
-            #     print('Commit {} {} {}'.format(c.hash, c.msg, c.committer_date))
-            #     print('Modification {}'.format(mod.filename))
-            #     print(mod.diff_parsed)
+                check_and_update_methods(mod, c_file, commit)
         if count_commit:
             c_count += 1
 
@@ -615,38 +522,12 @@ def mine_before_and_after_tag(repo: str, save_location: str, tag: str = None, co
 
 if __name__ == '__main__':
 
-    # use_repo = 'C:/Users/aprodea/work/deloitte-tax-compare/.git'
-    # use_tag = '1.1.1_june_2017'
-    # save_to_location = 'C:/Users/aprodea/work/metrics-tax-compare/commits/last'
-    # save_to_location = 'C:/Users/aprodea/work/metrics-tax-compare/commits/tag-1.1.1'
-
-    use_repo = 'C:/Users/aprodea/work/deloitte-tax-i/Web/.git'
-    # save_to_location = 'C:/Users/aprodea/work/deloitte-tax-i/metrics/commits/last'
-    save_to_location = 'C:/Users/aprodea/work/deloitte-tax-i/metrics/commits/commit_23-01-20'
-    com = '92ad42d11f3688006d573ce9fb0f763ef3a2398f'
-
-    # save_location = 'C:/Users/aprodea/work/metrics-tax-compare/commits/new'
-
-    # use_repo = 'https://github.com/ShareX/ShareX.git'
-    # use_repo = 'C:/Users/aprodea/work/experiment-projects/sharex/ShareX/.git'
-    # use_tag = 'v12.0.0'
-    # save_to_location = 'C:/Users/aprodea/work/experiment-projects/sharex/commits/v12.0.0'
-
-    # repo = 'https://github.com/OptiKey/OptiKey.git'
-    # repo = 'C:/Users/aprodea/work/experiment-projects/optikey/OptiKey/.git'
-    # tag = 'v3.0.0'
-    # save_location = 'C:/Users/aprodea/work/experiment-projects/optikey/commits/v3.0.0'
-
-    # use_repo = 'https://github.com/ana28p/testing-with-csharp.git'
-    # use_repo = 'C:/Users/aprodea/work/testing/DummySolution/.git'
-    # save_to_location = 'C:/Users/aprodea/work/testing/last'
+    use_repo = 'https://github.com/ShareX/ShareX.git'
+    use_tag = 'v12.0.0'
+    save_to_location = ''
 
     mine_before_and_after_tag(repo=use_repo,
                               save_location=save_to_location,
-                              # tag=use_tag,
-                              commit_hash=com
+                              tag=use_tag,
+                              # commit_hash=com
                               )
-
-    # mine_and_save_output(repo=use_repo, save_location=save_to_location)
-
-    # print_actual_files(files)
